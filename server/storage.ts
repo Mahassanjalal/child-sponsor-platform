@@ -1,38 +1,196 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
+import {
+  users,
+  children,
+  sponsorships,
+  reports,
+  payments,
+  type User,
+  type InsertUser,
+  type Child,
+  type InsertChild,
+  type Sponsorship,
+  type InsertSponsorship,
+  type Report,
+  type InsertReport,
+  type Payment,
+  type InsertPayment,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
-// modify the interface with any CRUD methods
-// you might need
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  sessionStore: session.Store;
+  
+  getUser(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getSponsors(): Promise<User[]>;
+  
+  getChildren(): Promise<Child[]>;
+  getChild(id: number): Promise<Child | undefined>;
+  getAvailableChildren(): Promise<Child[]>;
+  getFeaturedChildren(): Promise<Child[]>;
+  createChild(child: InsertChild): Promise<Child>;
+  updateChild(id: number, child: Partial<InsertChild>): Promise<Child | undefined>;
+  updateChildSponsoredStatus(id: number, isSponsored: boolean): Promise<void>;
+  
+  getSponsorships(): Promise<Sponsorship[]>;
+  getSponsorshipsBySponserId(sponsorId: number): Promise<Sponsorship[]>;
+  getSponsorship(id: number): Promise<Sponsorship | undefined>;
+  createSponsorship(sponsorship: InsertSponsorship): Promise<Sponsorship>;
+  updateSponsorship(id: number, sponsorship: Partial<InsertSponsorship>): Promise<Sponsorship | undefined>;
+  
+  getReports(): Promise<Report[]>;
+  getReportsByChildId(childId: number): Promise<Report[]>;
+  getReportsBySponsorId(sponsorId: number): Promise<Report[]>;
+  createReport(report: InsertReport): Promise<Report>;
+  
+  getPayments(): Promise<Payment[]>;
+  getPaymentsBySponsorId(sponsorId: number): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+    });
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async getSponsors(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.role, "sponsor")).orderBy(desc(users.createdAt));
+  }
+
+  async getChildren(): Promise<Child[]> {
+    return db.select().from(children).orderBy(desc(children.createdAt));
+  }
+
+  async getChild(id: number): Promise<Child | undefined> {
+    const [child] = await db.select().from(children).where(eq(children.id, id));
+    return child || undefined;
+  }
+
+  async getAvailableChildren(): Promise<Child[]> {
+    return db.select().from(children).where(eq(children.isSponsored, false)).orderBy(desc(children.createdAt));
+  }
+
+  async getFeaturedChildren(): Promise<Child[]> {
+    return db.select().from(children).where(eq(children.isSponsored, false)).limit(6);
+  }
+
+  async createChild(child: InsertChild): Promise<Child> {
+    const [newChild] = await db.insert(children).values(child).returning();
+    return newChild;
+  }
+
+  async updateChild(id: number, child: Partial<InsertChild>): Promise<Child | undefined> {
+    const [updated] = await db.update(children).set(child).where(eq(children.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async updateChildSponsoredStatus(id: number, isSponsored: boolean): Promise<void> {
+    await db.update(children).set({ isSponsored }).where(eq(children.id, id));
+  }
+
+  async getSponsorships(): Promise<Sponsorship[]> {
+    return db.select().from(sponsorships).orderBy(desc(sponsorships.startDate));
+  }
+
+  async getSponsorshipsBySponserId(sponsorId: number): Promise<Sponsorship[]> {
+    return db.select().from(sponsorships).where(eq(sponsorships.sponsorId, sponsorId));
+  }
+
+  async getSponsorship(id: number): Promise<Sponsorship | undefined> {
+    const [sponsorship] = await db.select().from(sponsorships).where(eq(sponsorships.id, id));
+    return sponsorship || undefined;
+  }
+
+  async createSponsorship(sponsorship: InsertSponsorship): Promise<Sponsorship> {
+    const [newSponsorship] = await db.insert(sponsorships).values(sponsorship).returning();
+    return newSponsorship;
+  }
+
+  async updateSponsorship(id: number, sponsorship: Partial<InsertSponsorship>): Promise<Sponsorship | undefined> {
+    const [updated] = await db.update(sponsorships).set(sponsorship).where(eq(sponsorships.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getReports(): Promise<Report[]> {
+    return db.select().from(reports).orderBy(desc(reports.reportDate));
+  }
+
+  async getReportsByChildId(childId: number): Promise<Report[]> {
+    return db.select().from(reports).where(eq(reports.childId, childId)).orderBy(desc(reports.reportDate));
+  }
+
+  async getReportsBySponsorId(sponsorId: number): Promise<Report[]> {
+    const sponsorSponsorships = await this.getSponsorshipsBySponserId(sponsorId);
+    const childIds = sponsorSponsorships.map(s => s.childId);
+    if (childIds.length === 0) return [];
+    
+    const allReports: Report[] = [];
+    for (const childId of childIds) {
+      const childReports = await this.getReportsByChildId(childId);
+      allReports.push(...childReports);
+    }
+    return allReports.sort((a, b) => 
+      new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()
+    );
+  }
+
+  async createReport(report: InsertReport): Promise<Report> {
+    const [newReport] = await db.insert(reports).values(report).returning();
+    return newReport;
+  }
+
+  async getPayments(): Promise<Payment[]> {
+    return db.select().from(payments).orderBy(desc(payments.paymentDate));
+  }
+
+  async getPaymentsBySponsorId(sponsorId: number): Promise<Payment[]> {
+    const sponsorSponsorships = await this.getSponsorshipsBySponserId(sponsorId);
+    const sponsorshipIds = sponsorSponsorships.map(s => s.id);
+    if (sponsorshipIds.length === 0) return [];
+    
+    const allPayments: Payment[] = [];
+    for (const sponsorshipId of sponsorshipIds) {
+      const sponsorshipPayments = await db.select().from(payments)
+        .where(eq(payments.sponsorshipId, sponsorshipId))
+        .orderBy(desc(payments.paymentDate));
+      allPayments.push(...sponsorshipPayments);
+    }
+    return allPayments.sort((a, b) => 
+      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+    );
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
