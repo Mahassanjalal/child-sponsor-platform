@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireAdmin } from "./auth";
+import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -24,6 +25,22 @@ export async function registerRoutes(
       res.json(children);
     } catch (error) {
       res.status(500).send("Failed to fetch available children");
+    }
+  });
+
+  app.get("/api/children/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).send("Invalid child ID");
+      }
+      const child = await storage.getChild(id);
+      if (!child) {
+        return res.status(404).send("Child not found");
+      }
+      res.json(child);
+    } catch (error) {
+      res.status(500).send("Failed to fetch child");
     }
   });
 
@@ -65,6 +82,261 @@ export async function registerRoutes(
       res.json(payments);
     } catch (error) {
       res.status(500).send("Failed to fetch payments");
+    }
+  });
+
+  app.get("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const { password, ...userWithoutPassword } = req.user!;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).send("Failed to fetch profile");
+    }
+  });
+
+  app.put("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const { updateProfileSchema } = await import("@shared/schema");
+      const parsed = updateProfileSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).send(parsed.error.errors[0]?.message || "Invalid profile data");
+      }
+
+      const { firstName, lastName, phone, address, avatarUrl } = parsed.data;
+      
+      const updates: any = {};
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      if (phone !== undefined) updates.phone = phone;
+      if (address !== undefined) updates.address = address;
+      if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+
+      const updatedUser = await storage.updateUser(req.user!.id, updates);
+      if (!updatedUser) {
+        return res.status(404).send("User not found");
+      }
+      
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).send("Failed to update profile");
+    }
+  });
+
+  app.put("/api/profile/password", requireAuth, async (req, res) => {
+    try {
+      const { changePasswordSchema } = await import("@shared/schema");
+      const parsed = changePasswordSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).send(parsed.error.errors[0]?.message || "Invalid password data");
+      }
+
+      const { currentPassword, newPassword } = parsed.data;
+
+      const { comparePasswords, hashPassword } = await import("./auth");
+      const isValid = await comparePasswords(currentPassword, req.user!.password);
+      
+      if (!isValid) {
+        return res.status(400).send("Current password is incorrect");
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(req.user!.id, { password: hashedPassword });
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      res.status(500).send("Failed to update password");
+    }
+  });
+
+  app.get("/api/stripe/publishable-key", async (req, res) => {
+    try {
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      res.status(500).send("Failed to get Stripe key");
+    }
+  });
+
+  app.post("/api/stripe/create-checkout", requireAuth, async (req, res) => {
+    try {
+      const { createCheckoutSchema } = await import("@shared/schema");
+      const parsed = createCheckoutSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).send(parsed.error.errors[0]?.message || "Invalid checkout data");
+      }
+
+      const { childId, paymentType } = parsed.data;
+      
+      const child = await storage.getChild(childId);
+      if (!child) {
+        return res.status(404).send("Child not found");
+      }
+      if (child.isSponsored) {
+        return res.status(400).send("This child is already sponsored");
+      }
+
+      const stripe = await getUncachableStripeClient();
+      let customerId = req.user!.stripeCustomerId;
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: req.user!.email,
+          name: `${req.user!.firstName} ${req.user!.lastName}`,
+          metadata: { userId: req.user!.id.toString() },
+        });
+        await storage.updateUserStripeInfo(req.user!.id, customer.id);
+        customerId = customer.id;
+      }
+
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      const amount = Math.round(parseFloat(child.monthlyAmount) * 100);
+
+      let session;
+      
+      if (paymentType === 'one-time') {
+        session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          payment_method_types: ['card'],
+          line_items: [{
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Sponsor ${child.firstName} ${child.lastName}`,
+                description: `One-time sponsorship contribution for ${child.firstName}`,
+              },
+              unit_amount: amount,
+            },
+            quantity: 1,
+          }],
+          mode: 'payment',
+          success_url: `${baseUrl}/sponsor/success?session_id={CHECKOUT_SESSION_ID}&child_id=${childId}&type=one-time`,
+          cancel_url: `${baseUrl}/sponsor/child/${childId}`,
+          metadata: {
+            childId: childId.toString(),
+            sponsorId: req.user!.id.toString(),
+            paymentType: 'one-time',
+          },
+        });
+      } else {
+        session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          payment_method_types: ['card'],
+          line_items: [{
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Monthly Sponsorship - ${child.firstName} ${child.lastName}`,
+                description: `Monthly sponsorship for ${child.firstName} from ${child.location}`,
+              },
+              unit_amount: amount,
+              recurring: { interval: 'month' },
+            },
+            quantity: 1,
+          }],
+          mode: 'subscription',
+          success_url: `${baseUrl}/sponsor/success?session_id={CHECKOUT_SESSION_ID}&child_id=${childId}&type=monthly`,
+          cancel_url: `${baseUrl}/sponsor/child/${childId}`,
+          metadata: {
+            childId: childId.toString(),
+            sponsorId: req.user!.id.toString(),
+            paymentType: 'monthly',
+          },
+        });
+      }
+
+      res.json({ sessionUrl: session.url });
+    } catch (error) {
+      console.error("Checkout error:", error);
+      res.status(500).send("Failed to create checkout session");
+    }
+  });
+
+  app.post("/api/stripe/confirm-sponsorship", requireAuth, async (req, res) => {
+    try {
+      const { confirmSponsorshipSchema } = await import("@shared/schema");
+      const parsed = confirmSponsorshipSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).send(parsed.error.errors[0]?.message || "Invalid confirmation data");
+      }
+
+      const { sessionId } = parsed.data;
+
+      const stripe = await getUncachableStripeClient();
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      if (session.payment_status !== 'paid') {
+        return res.status(400).send("Payment not completed");
+      }
+
+      // Security: Extract all values from trusted Stripe session metadata
+      const sessionSponsorId = session.metadata?.sponsorId;
+      const sessionChildId = session.metadata?.childId;
+      const sessionPaymentType = session.metadata?.paymentType;
+      
+      // Verify session belongs to authenticated user by both metadata and customer
+      if (sessionSponsorId !== req.user!.id.toString()) {
+        return res.status(403).send("Session does not belong to this user");
+      }
+      
+      // Verify session customer matches user's Stripe customer ID
+      if (req.user!.stripeCustomerId && session.customer !== req.user!.stripeCustomerId) {
+        return res.status(403).send("Session customer mismatch");
+      }
+      
+      // Validate session has required metadata
+      if (!sessionChildId || !sessionPaymentType) {
+        return res.status(400).send("Invalid session metadata");
+      }
+      
+      // Validate payment type matches session mode for consistency
+      const isSubscription = session.mode === 'subscription';
+      const expectedPaymentType = isSubscription ? 'monthly' : 'one-time';
+      if (sessionPaymentType !== expectedPaymentType) {
+        return res.status(400).send("Payment type mismatch with session mode");
+      }
+
+      // Use childId from trusted session metadata, not from request
+      const childId = parseInt(sessionChildId);
+      const child = await storage.getChild(childId);
+      if (!child) {
+        return res.status(404).send("Child not found");
+      }
+
+      const existingSponsorships = await storage.getSponsorshipsBySponserId(req.user!.id);
+      const alreadySponsoring = existingSponsorships.some(s => s.childId === childId);
+      
+      if (alreadySponsoring) {
+        return res.json({ message: "Already sponsoring this child" });
+      }
+
+      // Use trusted values from session metadata
+      const sponsorship = await storage.createSponsorship({
+        sponsorId: req.user!.id,
+        childId: childId,
+        status: "active",
+        monthlyAmount: child.monthlyAmount,
+        paymentType: sessionPaymentType,
+        stripeSubscriptionId: session.subscription?.toString() || null,
+      });
+
+      await storage.updateChildSponsoredStatus(parseInt(childId), true);
+
+      await storage.createPayment({
+        sponsorshipId: sponsorship.id,
+        amount: child.monthlyAmount,
+        status: "completed",
+        stripePaymentId: session.payment_intent?.toString() || session.id,
+      });
+
+      res.json({ sponsorship });
+    } catch (error) {
+      console.error("Confirm sponsorship error:", error);
+      res.status(500).send("Failed to confirm sponsorship");
     }
   });
 

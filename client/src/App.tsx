@@ -10,6 +10,9 @@ import LandingPage from "@/pages/landing-page";
 import AuthPage from "@/pages/auth-page";
 import SponsorDashboard from "@/pages/sponsor-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
+import ProfilePage from "@/pages/profile-page";
+import SponsorChild from "@/pages/sponsor-child";
+import SponsorSuccess from "@/pages/sponsor-success";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +21,9 @@ function Router() {
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/dashboard" component={SponsorDashboard} />
+      <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/sponsor/child/:id" component={SponsorChild} />
+      <ProtectedRoute path="/sponsor/success" component={SponsorSuccess} />
       <AdminRoute path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

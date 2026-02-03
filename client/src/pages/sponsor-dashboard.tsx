@@ -23,6 +23,7 @@ import {
   ReportCardSkeleton,
   PaymentHistorySkeleton,
 } from "@/components/loading-skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Heart,
   Users,
@@ -37,6 +38,8 @@ import {
   Sparkles,
   Plus,
   Download,
+  Search,
+  MapPin,
 } from "lucide-react";
 import type { Child, Report, Payment, Sponsorship } from "@shared/schema";
 import { format } from "date-fns";
@@ -50,6 +53,7 @@ export default function SponsorDashboard() {
   const { user, logoutMutation } = useAuth();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: sponsorships, isLoading: loadingSponsorships } = useQuery<SponsorshipWithDetails[]>({
     queryKey: ["/api/sponsorships/my"],
@@ -70,6 +74,13 @@ export default function SponsorDashboard() {
   const totalDonated = payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0;
   const totalChildren = sponsorships?.length || 0;
   const totalReports = reports?.length || 0;
+
+  const filteredChildren = availableChildren?.filter((child) =>
+    searchQuery === "" ||
+    child.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    child.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    child.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -97,18 +108,20 @@ export default function SponsorDashboard() {
 
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <div className="flex items-center gap-2">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={user?.avatarUrl || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <Link href="/profile">
+                <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user?.avatarUrl || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden sm:block">
+                    <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
                 </div>
-              </div>
+              </Link>
               <Button
                 variant="ghost"
                 size="icon"
@@ -362,8 +375,22 @@ export default function SponsorDashboard() {
                 <TabsContent value="children" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Available Children to Sponsor</CardTitle>
-                      <CardDescription>Choose a child to support their education, healthcare, and well-being</CardDescription>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                          <CardTitle>Available Children to Sponsor</CardTitle>
+                          <CardDescription>Choose a child to support their education, healthcare, and well-being</CardDescription>
+                        </div>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search by name or location..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 w-full sm:w-64"
+                            data-testid="input-search-children"
+                          />
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {loadingChildren ? (
@@ -372,9 +399,9 @@ export default function SponsorDashboard() {
                             <ChildCardSkeleton key={i} />
                           ))}
                         </div>
-                      ) : availableChildren && availableChildren.length > 0 ? (
+                      ) : filteredChildren && filteredChildren.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {availableChildren.map((child) => (
+                          {filteredChildren.map((child) => (
                             <HoverScale key={child.id}>
                               <Card className="overflow-hidden group">
                                 <div className="relative aspect-[4/3] bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
@@ -395,14 +422,22 @@ export default function SponsorDashboard() {
                                   <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{child.story}</p>
                                   <div className="flex items-center justify-between">
                                     <span className="font-semibold text-primary">${child.monthlyAmount}/month</span>
-                                    <Button size="sm" data-testid={`button-sponsor-${child.id}`}>
-                                      Sponsor
-                                    </Button>
+                                    <Link href={`/sponsor/child/${child.id}`}>
+                                      <Button size="sm" data-testid={`button-sponsor-${child.id}`}>
+                                        Sponsor
+                                      </Button>
+                                    </Link>
                                   </div>
                                 </CardContent>
                               </Card>
                             </HoverScale>
                           ))}
+                        </div>
+                      ) : searchQuery ? (
+                        <div className="text-center py-12">
+                          <Search className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                          <p className="text-muted-foreground">No children found matching "{searchQuery}"</p>
+                          <p className="text-sm text-muted-foreground">Try a different search term or clear the filter.</p>
                         </div>
                       ) : (
                         <div className="text-center py-12">

@@ -29,6 +29,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
+  updateUserStripeInfo(id: number, stripeCustomerId: string): Promise<User | undefined>;
   getSponsors(): Promise<User[]>;
   
   getChildren(): Promise<Child[]>;
@@ -78,6 +80,16 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async updateUserStripeInfo(id: number, stripeCustomerId: string): Promise<User | undefined> {
+    const [updated] = await db.update(users).set({ stripeCustomerId }).where(eq(users.id, id)).returning();
+    return updated || undefined;
   }
 
   async getSponsors(): Promise<User[]> {

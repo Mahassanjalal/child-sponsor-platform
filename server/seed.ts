@@ -97,6 +97,48 @@ export async function seedDatabase() {
     }).returning();
     console.log("Created sponsor user:", sponsor2.email);
 
+    const [sponsor3] = await db.insert(users).values({
+      email: "emily.williams@email.com",
+      password: sponsorPassword,
+      firstName: "Emily",
+      lastName: "Williams",
+      role: "sponsor",
+      phone: "+1-555-0125",
+      address: "123 Oak Street, Boston, MA 02101",
+    }).returning();
+    console.log("Created sponsor user:", sponsor3.email);
+
+    const [sponsor4] = await db.insert(users).values({
+      email: "david.garcia@email.com",
+      password: sponsorPassword,
+      firstName: "David",
+      lastName: "Garcia",
+      role: "sponsor",
+      phone: "+1-555-0126",
+    }).returning();
+    console.log("Created sponsor user:", sponsor4.email);
+
+    const [sponsor5] = await db.insert(users).values({
+      email: "jennifer.brown@email.com",
+      password: sponsorPassword,
+      firstName: "Jennifer",
+      lastName: "Brown",
+      role: "sponsor",
+      phone: "+1-555-0127",
+      address: "456 Maple Avenue, Seattle, WA 98101",
+    }).returning();
+    console.log("Created sponsor user:", sponsor5.email);
+
+    const admin2Password = await hashPassword("admin456");
+    const [admin2] = await db.insert(users).values({
+      email: "coordinator@hopeconnect.org",
+      password: admin2Password,
+      firstName: "Program",
+      lastName: "Coordinator",
+      role: "admin",
+    }).returning();
+    console.log("Created admin user:", admin2.email);
+
     const createdChildren: typeof children.$inferSelect[] = [];
     for (const childData of sampleChildren) {
       const [child] = await db.insert(children).values(childData).returning();

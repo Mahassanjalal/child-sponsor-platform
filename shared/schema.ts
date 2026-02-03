@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   phone: text("phone"),
   address: text("address"),
+  stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -39,6 +40,8 @@ export const sponsorships = pgTable("sponsorships", {
   startDate: timestamp("start_date").defaultNow().notNull(),
   endDate: timestamp("end_date"),
   monthlyAmount: decimal("monthly_amount", { precision: 10, scale: 2 }).notNull(),
+  paymentType: text("payment_type").notNull().default("monthly"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
 });
 
 export const reports = pgTable("reports", {
@@ -98,6 +101,31 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+  stripeCustomerId: true,
+});
+
+export const updateProfileSchema = z.object({
+  firstName: z.string().min(1, "First name is required").optional(),
+  lastName: z.string().min(1, "Last name is required").optional(),
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+});
+
+export const createCheckoutSchema = z.object({
+  childId: z.number().int().positive("Invalid child ID"),
+  paymentType: z.enum(["monthly", "one-time"], { 
+    errorMap: () => ({ message: "Payment type must be 'monthly' or 'one-time'" }) 
+  }),
+});
+
+export const confirmSponsorshipSchema = z.object({
+  sessionId: z.string().min(1, "Session ID is required"),
 });
 
 export const loginSchema = z.object({

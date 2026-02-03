@@ -229,18 +229,20 @@ export default function AdminDashboard() {
 
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <div className="flex items-center gap-2">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={user?.avatarUrl || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-                  <p className="text-xs text-muted-foreground">Administrator</p>
+              <Link href="/profile">
+                <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user?.avatarUrl || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden sm:block">
+                    <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-xs text-muted-foreground">Administrator</p>
+                  </div>
                 </div>
-              </div>
+              </Link>
               <Button
                 variant="ghost"
                 size="icon"
