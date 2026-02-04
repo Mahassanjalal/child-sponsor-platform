@@ -4,12 +4,14 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Form,
   FormControl,
@@ -31,6 +33,7 @@ import {
   MessageSquare,
   Clock,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 const contactSchema = z.object({
@@ -90,7 +93,27 @@ const faqs = [
 
 export default function ContactPage() {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const contactMutation = useMutation({
+    mutationFn: async (data: ContactFormData) => {
+      const res = await apiRequest("POST", "/api/contact", data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Message Sent",
+        description: data.message || "Thank you for contacting us. We'll get back to you soon!",
+      });
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to send message",
+        description: error.message || "Please try again later.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -103,14 +126,7 @@ export default function ContactPage() {
   });
 
   const onSubmit = async (data: ContactFormData) => {
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
-    toast({
-      title: "Message Sent",
-      description: "Thank you for contacting us. We'll get back to you soon!",
-    });
-    form.reset();
+    contactMutation.mutate(data);
   };
 
   return (
@@ -225,9 +241,12 @@ export default function ContactPage() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full" disabled={isSubmitting} data-testid="button-send-message">
-                        {isSubmitting ? (
-                          "Sending..."
+                      <Button type="submit" className="w-full" disabled={contactMutation.isPending} data-testid="button-send-message">
+                        {contactMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
                         ) : (
                           <>
                             <Send className="w-4 h-4 mr-2" />

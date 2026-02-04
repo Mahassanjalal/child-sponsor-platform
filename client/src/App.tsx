@@ -18,6 +18,8 @@ import SponsorSuccess from "@/pages/sponsor-success";
 import ContactPage from "@/pages/contact";
 import PaymentErrorPage from "@/pages/payment-error";
 import ChildDetailPage from "@/pages/child-detail";
+import TermsPage from "@/pages/terms";
+import PrivacyPage from "@/pages/privacy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +30,8 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/contact" component={ContactPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/privacy" component={PrivacyPage} />
       <Route path="/payment-error" component={PaymentErrorPage} />
       <ProtectedRoute path="/dashboard" component={SponsorDashboard} />
       <ProtectedRoute path="/profile" component={ProfilePage} />

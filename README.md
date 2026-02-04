@@ -117,15 +117,20 @@ Child-Sponsor-Hub/
 │   │   │   ├── profile-page.tsx
 │   │   │   ├── sponsor-child.tsx
 │   │   │   ├── child-detail.tsx
+│   │   │   ├── contact.tsx
+│   │   │   ├── terms.tsx        # Terms of Service
+│   │   │   ├── privacy.tsx      # Privacy Policy
 │   │   │   └── [other pages]
 │   │   ├── App.tsx              # Main app component
 │   │   └── main.tsx             # Entry point
 │   └── index.html
 ├── server/                      # Backend Express application
 │   ├── auth.ts                  # Authentication logic
+│   ├── config.ts                # Environment validation
 │   ├── db.ts                    # Database connection
 │   ├── email.ts                 # Email service
 │   ├── index.ts                 # Server entry point
+│   ├── rateLimit.ts             # Rate limiting middleware
 │   ├── routes.ts                # API route handlers
 │   ├── seed.ts                  # Database seeding
 │   ├── storage.ts               # Data access layer
@@ -299,6 +304,9 @@ npm run check
 - `PUT /api/profile` - Update user profile
 - `POST /api/profile/change-password` - Change password
 
+### Contact
+- `POST /api/contact` - Submit contact form (rate limited)
+
 ### Stripe
 - `GET /api/stripe/publishable-key` - Get Stripe publishable key
 - `POST /api/webhooks/stripe` - Stripe webhook endpoint
@@ -394,14 +402,26 @@ FROM_EMAIL=noreply@yourdomain.com
 
 ## 🔒 Security Features
 
-- **Password Hashing**: bcrypt for secure password storage
-- **Session Management**: Secure, HTTP-only cookies
+- **Password Hashing**: Scrypt for secure password storage
+- **Session Management**: Secure, HTTP-only cookies with PostgreSQL store
 - **CSRF Protection**: Built into session management
 - **SQL Injection Prevention**: Parameterized queries via Drizzle ORM
 - **XSS Protection**: React's built-in escaping
-- **Rate Limiting**: (Recommended to add for production)
-- **Environment Variables**: Sensitive data in .env files
+- **Rate Limiting**: Implemented for authentication and sensitive endpoints
+  - Login: 5 attempts per 15 minutes
+  - Registration: 3 attempts per hour
+  - Password Reset: 3 requests per hour
+  - Contact Form: 5 submissions per hour
+- **Environment Validation**: Required variables validated at startup
 - **Stripe Webhook Verification**: Validates webhook signatures
+- **Input Validation**: Zod schemas for all user inputs
+
+## 📜 Legal Pages
+
+The platform includes required legal pages for compliance:
+
+- **Terms of Service** (`/terms`) - User agreement and platform rules
+- **Privacy Policy** (`/privacy`) - GDPR and CCPA compliant privacy policy
 
 ## 🧪 Testing
 

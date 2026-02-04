@@ -311,12 +311,15 @@ export default function LandingPage() {
             <a href="#how-it-works" className="text-sm text-[#5a5a5a] hover:text-[#2d2d2d] transition-colors">
               How It Works
             </a>
-            <a href="#faqs" className="text-sm text-[#5a5a5a] hover:text-[#2d2d2d] transition-colors">
-              FAQs
-            </a>
-            <a href="#contact" className="text-sm text-[#5a5a5a] hover:text-[#2d2d2d] transition-colors">
+            <Link href="/contact" className="text-sm text-[#5a5a5a] hover:text-[#2d2d2d] transition-colors">
               Contact
-            </a>
+            </Link>
+            <Link href="/terms" className="text-sm text-[#5a5a5a] hover:text-[#2d2d2d] transition-colors">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="text-sm text-[#5a5a5a] hover:text-[#2d2d2d] transition-colors">
+              Privacy Policy
+            </Link>
           </div>
           <div className="text-center text-sm text-[#8a7d6d]">
             <p>&copy; {new Date().getFullYear()} JTT Foundation. All rights reserved.</p>

@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireAdmin, hashPassword } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { sendPasswordResetEmail, sendWelcomeEmail, sendSponsorshipConfirmationEmail, sendNewReportEmail } from "./email";
+import { sendPasswordResetEmail, sendWelcomeEmail, sendSponsorshipConfirmationEmail, sendNewReportEmail, sendContactEmail } from "./email";
+import { passwordResetRateLimiter, contactRateLimiter } from "./rateLimit";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -24,7 +25,7 @@ export async function registerRoutes(
     password: z.string().min(6, "Password must be at least 6 characters"),
   });
 
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", passwordResetRateLimiter, async (req, res) => {
     try {
       const parsed = forgotPasswordSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -617,6 +618,22 @@ export async function registerRoutes(
         photoUrl: photoUrl || null,
       });
 
+      // Send email notifications to all sponsors of this child
+      const sponsorships = await storage.getSponsorships();
+      const childSponsorships = sponsorships.filter(s => s.childId === parseInt(childId) && s.status === "active");
+      
+      for (const sponsorship of childSponsorships) {
+        const sponsor = await storage.getUser(sponsorship.sponsorId);
+        if (sponsor) {
+          sendNewReportEmail(
+            sponsor.email,
+            sponsor.firstName,
+            `${child.firstName} ${child.lastName}`,
+            title
+          ).catch(err => console.error('Failed to send report email:', err));
+        }
+      }
+
       res.status(201).json(report);
     } catch (error) {
       res.status(500).send("Failed to create report");
@@ -713,7 +730,7 @@ export async function registerRoutes(
 
       if (sponsorship.stripeSubscriptionId) {
         try {
-          const stripe = getUncachableStripeClient();
+          const stripe = await getUncachableStripeClient();
           if (stripe) {
             await stripe.subscriptions.cancel(sponsorship.stripeSubscriptionId);
           }
@@ -726,6 +743,36 @@ export async function registerRoutes(
       res.json({ message: "Sponsorship cancelled successfully", sponsorship: cancelled });
     } catch (error) {
       res.status(500).json({ error: "Failed to cancel sponsorship" });
+    }
+  });
+
+  // Contact form endpoint
+  const contactSchema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Please enter a valid email"),
+    subject: z.string().min(5, "Subject must be at least 5 characters"),
+    message: z.string().min(20, "Message must be at least 20 characters"),
+  });
+
+  app.post("/api/contact", contactRateLimiter, async (req, res) => {
+    try {
+      const parsed = contactSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
+      }
+
+      const { name, email, subject, message } = parsed.data;
+      
+      const sent = await sendContactEmail(name, email, subject, message);
+      
+      if (!sent) {
+        return res.status(500).json({ error: "Failed to send message. Please try again later." });
+      }
+
+      res.json({ message: "Your message has been sent successfully. We'll get back to you soon!" });
+    } catch (error) {
+      console.error("Contact form error:", error);
+      res.status(500).json({ error: "Failed to send message" });
     }
   });
 

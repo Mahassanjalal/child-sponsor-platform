@@ -6,6 +6,10 @@ import { seedDatabase } from "./seed";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
+import { validateEnvironment } from "./config";
+
+// Validate environment variables before starting
+validateEnvironment();
 
 const app = express();
 const httpServer = createServer(app);

@@ -164,6 +164,71 @@ export async function sendNewReportEmail(
   }
 }
 
+export async function sendContactEmail(
+  name: string,
+  email: string,
+  subject: string,
+  message: string
+): Promise<boolean> {
+  const client = getResend();
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@hopeconnect.org';
+  
+  if (!client) {
+    console.log(`[Email Mock] Contact email from ${email}:`);
+    console.log(`[Email Mock] Subject: ${subject}`);
+    console.log(`[Email Mock] Message: ${message}`);
+    return true;
+  }
+
+  try {
+    await client.emails.send({
+      from: FROM_EMAIL,
+      to: adminEmail,
+      replyTo: email,
+      subject: `[HopeConnect Contact] ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #f97316;">New Contact Form Submission</h1>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>From:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Subject:</strong> ${subject}</p>
+          </div>
+          <div style="padding: 20px; border: 1px solid #e9ecef; border-radius: 8px;">
+            <p><strong>Message:</strong></p>
+            <p style="white-space: pre-wrap;">${message}</p>
+          </div>
+          <p style="margin-top: 20px; color: #6c757d; font-size: 12px;">This message was sent via the HopeConnect contact form.</p>
+        </div>
+      `,
+    });
+
+    // Send confirmation to the user
+    await client.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: `We received your message - ${APP_NAME}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #f97316;">Thank You for Contacting Us!</h1>
+          <p>Hi ${name},</p>
+          <p>We've received your message and will get back to you within 24-48 hours.</p>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Your message:</strong></p>
+            <p><strong>Subject:</strong> ${subject}</p>
+            <p style="white-space: pre-wrap;">${message}</p>
+          </div>
+          <p>Best regards,<br>The ${APP_NAME} Team</p>
+        </div>
+      `,
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send contact email:', error);
+    return false;
+  }
+}
+
 function getBaseUrl(): string {
   if (process.env.REPLIT_DOMAINS) {
     return `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;

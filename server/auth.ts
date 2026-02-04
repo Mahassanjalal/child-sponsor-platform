@@ -6,6 +6,8 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { sendWelcomeEmail } from "./email";
+import { loginRateLimiter, registerRateLimiter } from "./rateLimit";
 
 declare global {
   namespace Express {
@@ -75,7 +77,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  app.post("/api/register", registerRateLimiter, async (req, res, next) => {
     try {
       const { email, password, firstName, lastName } = req.body;
       
@@ -112,6 +114,11 @@ export function setupAuth(app: Express) {
         role: "sponsor",
       });
 
+      // Send welcome email (don't block registration if it fails)
+      sendWelcomeEmail(user.email, user.firstName).catch(err => {
+        console.error('Failed to send welcome email:', err);
+      });
+
       req.login(user, (err) => {
         if (err) return next(err);
         const { password: _, ...userWithoutPassword } = user;
@@ -122,7 +129,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
+  app.post("/api/login", loginRateLimiter, (req, res, next) => {
     passport.authenticate("local", (err: any, user: SelectUser | false, info: any) => {
       if (err) return next(err);
       if (!user) {
