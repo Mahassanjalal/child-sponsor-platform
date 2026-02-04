@@ -15,6 +15,17 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageTransition, AnimatedContainer } from "@/components/animated-container";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Heart,
   User,
   Mail,
@@ -25,6 +36,8 @@ import {
   ArrowLeft,
   LogOut,
   Shield,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -115,6 +128,28 @@ export default function ProfilePage() {
     logoutMutation.mutate();
     setLocation("/");
   };
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/profile");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been permanently deleted.",
+      });
+      queryClient.clear();
+      setLocation("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <PageTransition>
@@ -326,6 +361,60 @@ export default function ProfilePage() {
                   </form>
                 </CardContent>
               </Card>
+
+              {user?.role !== "admin" && (
+                <Card className="border-destructive/50 bg-destructive/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-destructive">
+                      <AlertTriangle className="w-5 h-5" />
+                      Danger Zone
+                    </CardTitle>
+                    <CardDescription>
+                      Permanently delete your account and all associated data
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Once you delete your account, there is no going back. This will permanently
+                      remove your profile, sponsorship history, and all related data.
+                    </p>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          className="w-full"
+                          data-testid="button-delete-account"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete My Account
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete your
+                            account and remove all your data from our servers.
+                            <span className="block mt-2 text-amber-600 font-medium">
+                              Note: You must cancel any active sponsorships before deleting your account.
+                            </span>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteAccountMutation.mutate()}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            data-testid="button-confirm-delete"
+                          >
+                            {deleteAccountMutation.isPending ? "Deleting..." : "Yes, delete my account"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardContent>
+                </Card>
+              )}
             </AnimatedContainer>
           </div>
         </main>

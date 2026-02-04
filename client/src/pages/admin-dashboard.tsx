@@ -113,6 +113,8 @@ export default function AdminDashboard() {
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [deleteChildId, setDeleteChildId] = useState<number | null>(null);
   const [deleteReportId, setDeleteReportId] = useState<number | null>(null);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [editingReport, setEditingReport] = useState<Report | null>(null);
 
   const { data: children, isLoading: loadingChildren } = useQuery<Child[]>({
     queryKey: ["/api/admin/children"],
@@ -254,6 +256,98 @@ export default function AdminDashboard() {
       setDeleteReportId(null);
     },
   });
+
+  const updateChildMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ChildFormData }) => {
+      const res = await apiRequest("PUT", `/api/admin/children/${id}`, {
+        ...data,
+        dateOfBirth: new Date(data.dateOfBirth).toISOString(),
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/children"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children/available"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children/featured"] });
+      setEditingChild(null);
+      childForm.reset();
+      toast({
+        title: "Child Updated",
+        description: "The child profile has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateReportMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<ReportFormData> }) => {
+      const res = await apiRequest("PUT", `/api/admin/reports/${id}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/reports"] });
+      setEditingReport(null);
+      reportForm.reset();
+      toast({
+        title: "Report Updated",
+        description: "The report has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openEditChild = (child: Child) => {
+    setEditingChild(child);
+    childForm.reset({
+      firstName: child.firstName,
+      lastName: child.lastName,
+      dateOfBirth: new Date(child.dateOfBirth).toISOString().split('T')[0],
+      gender: child.gender,
+      location: child.location,
+      story: child.story,
+      needs: child.needs,
+      photoUrl: child.photoUrl || "",
+      monthlyAmount: child.monthlyAmount,
+    });
+  };
+
+  const openEditReport = (report: Report) => {
+    setEditingReport(report);
+    reportForm.reset({
+      childId: report.childId.toString(),
+      title: report.title,
+      content: report.content,
+      photoUrl: report.photoUrl || "",
+    });
+  };
+
+  const handleChildSubmit = (data: ChildFormData) => {
+    if (editingChild) {
+      updateChildMutation.mutate({ id: editingChild.id, data });
+    } else {
+      createChildMutation.mutate(data);
+    }
+  };
+
+  const handleReportSubmit = (data: ReportFormData) => {
+    if (editingReport) {
+      updateReportMutation.mutate({ id: editingReport.id, data: { title: data.title, content: data.content, photoUrl: data.photoUrl } });
+    } else {
+      createReportMutation.mutate(data);
+    }
+  };
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -781,7 +875,12 @@ export default function AdminDashboard() {
                                     </TableCell>
                                     <TableCell>${child.monthlyAmount}</TableCell>
                                     <TableCell className="text-right">
-                                      <Button variant="ghost" size="icon" data-testid={`button-edit-child-${child.id}`}>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => openEditChild(child)}
+                                        data-testid={`button-edit-child-${child.id}`}
+                                      >
                                         <Pencil className="w-4 h-4" />
                                       </Button>
                                       <Button 
@@ -920,7 +1019,12 @@ export default function AdminDashboard() {
                                       {format(new Date(report.reportDate), "MMM d, yyyy")}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      <Button variant="ghost" size="icon" data-testid={`button-edit-report-${report.id}`}>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => openEditReport(report)}
+                                        data-testid={`button-edit-report-${report.id}`}
+                                      >
                                         <Pencil className="w-4 h-4" />
                                       </Button>
                                       <Button 
@@ -996,6 +1100,234 @@ export default function AdminDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={editingChild !== null} onOpenChange={(open) => !open && setEditingChild(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Child Profile</DialogTitle>
+            <DialogDescription>
+              Update the child's information.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...childForm}>
+            <form onSubmit={childForm.handleSubmit(handleChildSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={childForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-child-first-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={childForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-child-last-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={childForm.control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date of Birth</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-edit-child-dob" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={childForm.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Gender</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-child-gender">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={childForm.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="City, Country" data-testid="input-edit-child-location" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={childForm.control}
+                name="story"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Story</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} rows={3} data-testid="input-edit-child-story" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={childForm.control}
+                name="needs"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Needs</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} rows={2} data-testid="input-edit-child-needs" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={childForm.control}
+                name="photoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photo URL</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://..." data-testid="input-edit-child-photo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={childForm.control}
+                name="monthlyAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monthly Amount ($)</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-child-amount" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={updateChildMutation.isPending}
+                data-testid="button-update-child"
+              >
+                {updateChildMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Child"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editingReport !== null} onOpenChange={(open) => !open && setEditingReport(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Report</DialogTitle>
+            <DialogDescription>
+              Update the progress report.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...reportForm}>
+            <form onSubmit={reportForm.handleSubmit(handleReportSubmit)} className="space-y-4">
+              <FormField
+                control={reportForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-report-title" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={reportForm.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Content</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} rows={5} data-testid="input-edit-report-content" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={reportForm.control}
+                name="photoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photo URL</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://..." data-testid="input-edit-report-photo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={updateReportMutation.isPending}
+                data-testid="button-update-report"
+              >
+                {updateReportMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Report"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 }

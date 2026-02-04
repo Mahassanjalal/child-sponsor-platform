@@ -15,6 +15,9 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import ProfilePage from "@/pages/profile-page";
 import SponsorChild from "@/pages/sponsor-child";
 import SponsorSuccess from "@/pages/sponsor-success";
+import ContactPage from "@/pages/contact";
+import PaymentErrorPage from "@/pages/payment-error";
+import ChildDetailPage from "@/pages/child-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -24,10 +27,13 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/contact" component={ContactPage} />
+      <Route path="/payment-error" component={PaymentErrorPage} />
       <ProtectedRoute path="/dashboard" component={SponsorDashboard} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/sponsor/child/:id" component={SponsorChild} />
       <ProtectedRoute path="/sponsor/success" component={SponsorSuccess} />
+      <ProtectedRoute path="/child/:id" component={ChildDetailPage} />
       <AdminRoute path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

@@ -157,6 +157,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/child/:childId", requireAuth, async (req, res) => {
+    try {
+      const childId = parseInt(req.params.childId);
+      if (isNaN(childId)) {
+        return res.status(400).send("Invalid child ID");
+      }
+      
+      if (req.user!.role !== "admin") {
+        const userSponsorships = await storage.getSponsorshipsBySponserId(req.user!.id);
+        const sponsorsChild = userSponsorships.some(s => s.childId === childId && s.status === "active");
+        if (!sponsorsChild) {
+          return res.status(403).send("You can only view reports for children you sponsor");
+        }
+      }
+      
+      const reports = await storage.getReportsByChildId(childId);
+      res.json(reports);
+    } catch (error) {
+      res.status(500).send("Failed to fetch reports");
+    }
+  });
+
   app.get("/api/payments/my", requireAuth, async (req, res) => {
     try {
       const payments = await storage.getPaymentsBySponsorId(req.user!.id);
@@ -229,6 +251,37 @@ export async function registerRoutes(
       res.json({ message: "Password updated successfully" });
     } catch (error) {
       res.status(500).send("Failed to update password");
+    }
+  });
+
+  app.delete("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      if (req.user!.role === "admin") {
+        return res.status(400).json({ 
+          error: "Admin accounts cannot be self-deleted. Please contact another admin to remove your account." 
+        });
+      }
+      
+      const deleted = await storage.deleteUser(userId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      req.logout((err) => {
+        if (err) {
+          console.error("Logout error during account deletion:", err);
+        }
+      });
+      
+      res.json({ message: "Account deleted successfully" });
+    } catch (error: any) {
+      if (error.message?.includes("active sponsorships")) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Failed to delete account" });
     }
   });
 

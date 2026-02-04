@@ -17,7 +17,7 @@ import {
   type InsertPayment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, lt } from "drizzle-orm";
+import { eq, and, desc, lt, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -68,6 +68,7 @@ export interface IStorage {
   
   cancelSponsorship(id: number): Promise<Sponsorship | undefined>;
   getSponsorshipByStripeSubscriptionId(subscriptionId: string): Promise<Sponsorship | undefined>;
+  deleteUser(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -276,6 +277,33 @@ export class DatabaseStorage implements IStorage {
     const [sponsorship] = await db.select().from(sponsorships)
       .where(eq(sponsorships.stripeSubscriptionId, subscriptionId));
     return sponsorship || undefined;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const user = await this.getUser(id);
+    if (!user) return false;
+    
+    const activeSponsorships = await db.select().from(sponsorships)
+      .where(and(eq(sponsorships.sponsorId, id), eq(sponsorships.status, "active")));
+    
+    if (activeSponsorships.length > 0) {
+      throw new Error("Cannot delete account with active sponsorships. Please cancel all sponsorships first.");
+    }
+    
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, id));
+    
+    const userSponsorships = await db.select({ id: sponsorships.id }).from(sponsorships)
+      .where(eq(sponsorships.sponsorId, id));
+    
+    if (userSponsorships.length > 0) {
+      const sponsorshipIds = userSponsorships.map(s => s.id);
+      await db.delete(payments).where(inArray(payments.sponsorshipId, sponsorshipIds));
+    }
+    
+    await db.delete(sponsorships).where(eq(sponsorships.sponsorId, id));
+    await db.delete(users).where(eq(users.id, id));
+    
+    return true;
   }
 }
 
