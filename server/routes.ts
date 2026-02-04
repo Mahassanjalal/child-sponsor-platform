@@ -1,14 +1,95 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, requireAuth, requireAdmin } from "./auth";
+import { setupAuth, requireAuth, requireAdmin, hashPassword } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { sendPasswordResetEmail, sendWelcomeEmail, sendSponsorshipConfirmationEmail, sendNewReportEmail } from "./email";
+import { randomBytes } from "crypto";
+import { z } from "zod";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   setupAuth(app);
+  registerObjectStorageRoutes(app);
+
+  const forgotPasswordSchema = z.object({
+    email: z.string().email("Please enter a valid email"),
+  });
+
+  const resetPasswordSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const parsed = forgotPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
+      }
+
+      const { email } = parsed.data;
+      const user = await storage.getUserByEmail(email);
+      
+      if (user) {
+        const token = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        await storage.createPasswordResetToken(user.id, token, expiresAt);
+        await sendPasswordResetEmail(email, token, user.firstName);
+      }
+      
+      res.json({ message: "If an account exists with that email, a reset link has been sent" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const parsed = resetPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
+      }
+
+      const { token, password } = parsed.data;
+      const tokenData = await storage.getPasswordResetToken(token);
+      
+      if (!tokenData) {
+        return res.status(400).json({ error: "Invalid or expired reset token" });
+      }
+      
+      if (tokenData.expiresAt < new Date()) {
+        await storage.deletePasswordResetToken(token);
+        return res.status(400).json({ error: "Reset token has expired" });
+      }
+      
+      const hashedPassword = await hashPassword(password);
+      await storage.updateUser(tokenData.userId, { password: hashedPassword });
+      await storage.deletePasswordResetToken(token);
+      
+      res.json({ message: "Password has been reset successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  app.get("/api/auth/verify-reset-token/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const tokenData = await storage.getPasswordResetToken(token);
+      
+      if (!tokenData || tokenData.expiresAt < new Date()) {
+        return res.status(400).json({ valid: false, error: "Invalid or expired token" });
+      }
+      
+      res.json({ valid: true });
+    } catch (error) {
+      res.status(500).json({ valid: false, error: "Failed to verify token" });
+    }
+  });
 
   app.get("/api/children/featured", async (req, res) => {
     try {
@@ -495,6 +576,103 @@ export async function registerRoutes(
       res.json(payments);
     } catch (error) {
       res.status(500).send("Failed to fetch payments");
+    }
+  });
+
+  app.delete("/api/admin/children/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid child ID" });
+      }
+
+      const deleted = await storage.deleteChild(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Child not found" });
+      }
+
+      res.json({ message: "Child deleted successfully" });
+    } catch (error: any) {
+      if (error.message === "Cannot delete a sponsored child") {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Failed to delete child" });
+    }
+  });
+
+  app.delete("/api/admin/reports/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid report ID" });
+      }
+
+      const deleted = await storage.deleteReport(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      res.json({ message: "Report deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete report" });
+    }
+  });
+
+  app.put("/api/admin/reports/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid report ID" });
+      }
+
+      const { title, content, photoUrl } = req.body;
+      const updated = await storage.updateReport(id, { title, content, photoUrl });
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update report" });
+    }
+  });
+
+  app.post("/api/sponsorships/:id/cancel", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid sponsorship ID" });
+      }
+
+      const sponsorship = await storage.getSponsorship(id);
+      if (!sponsorship) {
+        return res.status(404).json({ error: "Sponsorship not found" });
+      }
+
+      if (sponsorship.sponsorId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Not authorized to cancel this sponsorship" });
+      }
+
+      if (sponsorship.status === "cancelled") {
+        return res.status(400).json({ error: "Sponsorship is already cancelled" });
+      }
+
+      if (sponsorship.stripeSubscriptionId) {
+        try {
+          const stripe = getUncachableStripeClient();
+          if (stripe) {
+            await stripe.subscriptions.cancel(sponsorship.stripeSubscriptionId);
+          }
+        } catch (stripeError) {
+          console.error("Failed to cancel Stripe subscription:", stripeError);
+        }
+      }
+
+      const cancelled = await storage.cancelSponsorship(id);
+      res.json({ message: "Sponsorship cancelled successfully", sponsorship: cancelled });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to cancel sponsorship" });
     }
   });
 

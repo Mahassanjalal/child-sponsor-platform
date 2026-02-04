@@ -8,6 +8,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
 import LandingPage from "@/pages/landing-page";
 import AuthPage from "@/pages/auth-page";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import SponsorDashboard from "@/pages/sponsor-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ProfilePage from "@/pages/profile-page";
@@ -20,6 +22,8 @@ function Router() {
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <ProtectedRoute path="/dashboard" component={SponsorDashboard} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/sponsor/child/:id" component={SponsorChild} />

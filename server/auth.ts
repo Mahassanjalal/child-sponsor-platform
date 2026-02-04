@@ -1,6 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -150,14 +150,14 @@ export function setupAuth(app: Express) {
   });
 }
 
-export function requireAuth(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
     return res.sendStatus(401);
   }
   next();
 }
 
-export function requireAdmin(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated() || req.user?.role !== "admin") {
     return res.sendStatus(403);
   }

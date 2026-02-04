@@ -4,6 +4,7 @@ import {
   sponsorships,
   reports,
   payments,
+  passwordResetTokens,
   type User,
   type InsertUser,
   type Child,
@@ -16,7 +17,7 @@ import {
   type InsertPayment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -55,6 +56,18 @@ export interface IStorage {
   getPayments(): Promise<Payment[]>;
   getPaymentsBySponsorId(sponsorId: number): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
+  
+  deleteChild(id: number): Promise<boolean>;
+  deleteReport(id: number): Promise<boolean>;
+  updateReport(id: number, updates: Partial<InsertReport>): Promise<Report | undefined>;
+  
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | undefined>;
+  deletePasswordResetToken(token: string): Promise<void>;
+  cleanupExpiredTokens(): Promise<void>;
+  
+  cancelSponsorship(id: number): Promise<Sponsorship | undefined>;
+  getSponsorshipByStripeSubscriptionId(subscriptionId: string): Promise<Sponsorship | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -202,6 +215,67 @@ export class DatabaseStorage implements IStorage {
   async createPayment(payment: InsertPayment): Promise<Payment> {
     const [newPayment] = await db.insert(payments).values(payment).returning();
     return newPayment;
+  }
+
+  async deleteChild(id: number): Promise<boolean> {
+    const child = await this.getChild(id);
+    if (!child) return false;
+    
+    if (child.isSponsored) {
+      throw new Error("Cannot delete a sponsored child");
+    }
+    
+    await db.delete(reports).where(eq(reports.childId, id));
+    await db.delete(children).where(eq(children.id, id));
+    return true;
+  }
+
+  async deleteReport(id: number): Promise<boolean> {
+    const result = await db.delete(reports).where(eq(reports.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async updateReport(id: number, updates: Partial<InsertReport>): Promise<Report | undefined> {
+    const [updated] = await db.update(reports).set(updates).where(eq(reports.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+    await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | undefined> {
+    const [result] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    if (!result) return undefined;
+    return { userId: result.userId, expiresAt: result.expiresAt };
+  }
+
+  async deletePasswordResetToken(token: string): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    await db.delete(passwordResetTokens).where(lt(passwordResetTokens.expiresAt, new Date()));
+  }
+
+  async cancelSponsorship(id: number): Promise<Sponsorship | undefined> {
+    const [updated] = await db.update(sponsorships)
+      .set({ status: "cancelled", endDate: new Date() })
+      .where(eq(sponsorships.id, id))
+      .returning();
+    
+    if (updated) {
+      await this.updateChildSponsoredStatus(updated.childId, false);
+    }
+    
+    return updated || undefined;
+  }
+
+  async getSponsorshipByStripeSubscriptionId(subscriptionId: string): Promise<Sponsorship | undefined> {
+    const [sponsorship] = await db.select().from(sponsorships)
+      .where(eq(sponsorships.stripeSubscriptionId, subscriptionId));
+    return sponsorship || undefined;
   }
 }
 

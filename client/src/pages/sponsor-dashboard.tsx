@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,8 +64,11 @@ interface SponsorshipWithDetails extends Sponsorship {
 export default function SponsorDashboard() {
   const { user, logoutMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedSponsorship, setSelectedSponsorship] = useState<SponsorshipWithDetails | null>(null);
 
   const { data: sponsorships, isLoading: loadingSponsorships } = useQuery<SponsorshipWithDetails[]>({
     queryKey: ["/api/sponsorships/my"],
@@ -70,6 +85,34 @@ export default function SponsorDashboard() {
   const { data: availableChildren, isLoading: loadingChildren } = useQuery<Child[]>({
     queryKey: ["/api/children/available"],
   });
+
+  const cancelSponsorshipMutation = useMutation({
+    mutationFn: async (sponsorshipId: number) => {
+      await apiRequest("POST", `/api/sponsorships/${sponsorshipId}/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sponsorships/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children/available"] });
+      toast({
+        title: "Sponsorship Cancelled",
+        description: "Your sponsorship has been cancelled successfully.",
+      });
+      setCancelDialogOpen(false);
+      setSelectedSponsorship(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to cancel sponsorship",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCancelSponsorship = (sponsorship: SponsorshipWithDetails) => {
+    setSelectedSponsorship(sponsorship);
+    setCancelDialogOpen(true);
+  };
 
   const totalDonated = payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0;
   const totalChildren = sponsorships?.length || 0;
@@ -264,10 +307,10 @@ export default function SponsorDashboard() {
                           </div>
                         ) : sponsorships && sponsorships.length > 0 ? (
                           <div className="space-y-4">
-                            {sponsorships.map((sponsorship) => (
+                            {sponsorships.filter(s => s.status === "active").map((sponsorship) => (
                               <motion.div
                                 key={sponsorship.id}
-                                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover-elevate cursor-pointer"
+                                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover-elevate"
                                 whileHover={{ x: 4 }}
                               >
                                 <Avatar className="h-14 w-14">
@@ -280,13 +323,24 @@ export default function SponsorDashboard() {
                                   <h4 className="font-semibold">{sponsorship.child.firstName} {sponsorship.child.lastName}</h4>
                                   <p className="text-sm text-muted-foreground">{sponsorship.child.location}</p>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right mr-2">
                                   <Badge variant="secondary">${sponsorship.monthlyAmount}/mo</Badge>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     Since {format(new Date(sponsorship.startDate), "MMM yyyy")}
                                   </p>
                                 </div>
-                                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelSponsorship(sponsorship);
+                                  }}
+                                  data-testid={`button-cancel-sponsorship-${sponsorship.id}`}
+                                >
+                                  Cancel
+                                </Button>
                               </motion.div>
                             ))}
                           </div>
@@ -570,6 +624,28 @@ export default function SponsorDashboard() {
           </Tabs>
         </main>
       </div>
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Sponsorship</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel your sponsorship of {selectedSponsorship?.child.firstName} {selectedSponsorship?.child.lastName}? 
+              This action cannot be undone and your recurring payments will be stopped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-dialog-close">Keep Sponsorship</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedSponsorship && cancelSponsorshipMutation.mutate(selectedSponsorship.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-cancel"
+            >
+              {cancelSponsorshipMutation.isPending ? "Cancelling..." : "Yes, Cancel"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageTransition>
   );
 }

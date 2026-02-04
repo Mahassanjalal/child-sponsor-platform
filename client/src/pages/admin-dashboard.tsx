@@ -22,6 +22,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -101,6 +111,8 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isChildDialogOpen, setIsChildDialogOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [deleteChildId, setDeleteChildId] = useState<number | null>(null);
+  const [deleteReportId, setDeleteReportId] = useState<number | null>(null);
 
   const { data: children, isLoading: loadingChildren } = useQuery<Child[]>({
     queryKey: ["/api/admin/children"],
@@ -194,6 +206,52 @@ export default function AdminDashboard() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const deleteChildMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/children/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/children"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children/available"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children/featured"] });
+      setDeleteChildId(null);
+      toast({
+        title: "Child Deleted",
+        description: "The child profile has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete child",
+        variant: "destructive",
+      });
+      setDeleteChildId(null);
+    },
+  });
+
+  const deleteReportMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/reports/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/reports"] });
+      setDeleteReportId(null);
+      toast({
+        title: "Report Deleted",
+        description: "The report has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete report",
+        variant: "destructive",
+      });
+      setDeleteReportId(null);
     },
   });
 
@@ -726,6 +784,16 @@ export default function AdminDashboard() {
                                       <Button variant="ghost" size="icon" data-testid={`button-edit-child-${child.id}`}>
                                         <Pencil className="w-4 h-4" />
                                       </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="text-destructive hover:text-destructive"
+                                        onClick={() => setDeleteChildId(child.id)}
+                                        disabled={child.isSponsored}
+                                        data-testid={`button-delete-child-${child.id}`}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -855,6 +923,15 @@ export default function AdminDashboard() {
                                       <Button variant="ghost" size="icon" data-testid={`button-edit-report-${report.id}`}>
                                         <Pencil className="w-4 h-4" />
                                       </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="text-destructive hover:text-destructive"
+                                        onClick={() => setDeleteReportId(report.id)}
+                                        data-testid={`button-delete-report-${report.id}`}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -877,6 +954,48 @@ export default function AdminDashboard() {
           </Tabs>
         </main>
       </div>
+
+      <AlertDialog open={deleteChildId !== null} onOpenChange={(open) => !open && setDeleteChildId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Child Profile</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this child profile? This action cannot be undone and will also remove all associated reports.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-child">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteChildId && deleteChildMutation.mutate(deleteChildId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-child"
+            >
+              {deleteChildMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteReportId !== null} onOpenChange={(open) => !open && setDeleteReportId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Report</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this report? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-report">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteReportId && deleteReportMutation.mutate(deleteReportId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-report"
+            >
+              {deleteReportMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageTransition>
   );
 }

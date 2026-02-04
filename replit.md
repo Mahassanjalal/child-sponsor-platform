@@ -89,10 +89,25 @@ Preferred communication style: Simple, everyday language.
 - `SESSION_SECRET`: Secret for session encryption
 - `STRIPE_SECRET_KEY`: Stripe API secret key (managed by Replit)
 - `STRIPE_PUBLISHABLE_KEY`: Stripe public key for frontend
+- `RESEND_API_KEY`: (Optional) Resend API key for email notifications
+
+### Object Storage
+- **Replit Object Storage**: Used for photo uploads (child photos, report photos)
+- **Integration**: GCS-backed with presigned URL upload flow
+- **Client Components**: ObjectUploader component and useUpload hook
+
+### Email Service
+- **Provider**: Resend (falls back to console logging if API key not set)
+- **Notifications**: Password reset, welcome email, sponsorship confirmation, new report alerts
 
 ## Recent Changes
 
 ### February 2026
+- Added password reset flow with forgot password and reset password pages
+- Implemented cancel subscription functionality for sponsors
+- Added admin delete functionality for children and reports
+- Integrated Object Storage for photo uploads
+- Added email service with Resend for notifications
 - Added Stripe payment integration for sponsorships (monthly and one-time)
 - Implemented user profile page with edit functionality and password change
 - Added search/filter for children in sponsor dashboard
