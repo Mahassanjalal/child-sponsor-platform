@@ -178,14 +178,9 @@ export class DatabaseStorage implements IStorage {
     const childIds = sponsorSponsorships.map(s => s.childId);
     if (childIds.length === 0) return [];
     
-    const allReports: Report[] = [];
-    for (const childId of childIds) {
-      const childReports = await this.getReportsByChildId(childId);
-      allReports.push(...childReports);
-    }
-    return allReports.sort((a, b) => 
-      new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()
-    );
+    return db.select().from(reports)
+      .where(inArray(reports.childId, childIds))
+      .orderBy(desc(reports.reportDate));
   }
 
   async createReport(report: InsertReport): Promise<Report> {
@@ -202,16 +197,9 @@ export class DatabaseStorage implements IStorage {
     const sponsorshipIds = sponsorSponsorships.map(s => s.id);
     if (sponsorshipIds.length === 0) return [];
     
-    const allPayments: Payment[] = [];
-    for (const sponsorshipId of sponsorshipIds) {
-      const sponsorshipPayments = await db.select().from(payments)
-        .where(eq(payments.sponsorshipId, sponsorshipId))
-        .orderBy(desc(payments.paymentDate));
-      allPayments.push(...sponsorshipPayments);
-    }
-    return allPayments.sort((a, b) => 
-      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-    );
+    return db.select().from(payments)
+      .where(inArray(payments.sponsorshipId, sponsorshipIds))
+      .orderBy(desc(payments.paymentDate));
   }
 
   async getPaymentByStripePaymentId(stripePaymentId: string): Promise<Payment | undefined> {
