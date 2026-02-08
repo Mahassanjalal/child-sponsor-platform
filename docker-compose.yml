@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: child_sponsorship
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/child_sponsorship
+    depends_on:
+      - db
+    command: sh -c "npm run db:push && npm run dev"
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  pg_data:

@@ -1,8 +1,8 @@
-# Child Sponsorship Platform 🌟
+﻿# Child Sponsorship Platform ðŸŒŸ
 
 A full-stack web application connecting sponsors with children in need of educational support. This platform enables recurring or one-time sponsorships through Stripe payments, with transparent progress tracking and reporting.
 
-## 📋 Table of Contents
+## ðŸ“‹ Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
@@ -20,7 +20,7 @@ A full-stack web application connecting sponsors with children in need of educat
 - [Contributing](#contributing)
 - [License](#license)
 
-## 🎯 Overview
+## ðŸŽ¯ Overview
 
 This Child Sponsorship Platform is designed to facilitate educational support for children by connecting them with compassionate sponsors. The platform provides a seamless experience for:
 
@@ -28,36 +28,36 @@ This Child Sponsorship Platform is designed to facilitate educational support fo
 - **Administrators**: Manage children profiles, upload reports, track sponsorships, and monitor payments
 - **Children**: Receive consistent educational support and have their progress documented
 
-## ✨ Features
+## âœ¨ Features
 
 ### For Sponsors
-- 👤 **User Authentication**: Secure registration and login with password reset functionality
-- 🔍 **Browse Children**: View featured children available for sponsorship
-- 💳 **Flexible Payments**: Choose between monthly recurring or one-time sponsorships
-- 📊 **Dashboard**: Track active sponsorships, payment history, and child progress
-- 📧 **Email Notifications**: Receive confirmations and updates
-- 👥 **Profile Management**: Update personal information and view sponsorship history
-- 📱 **Responsive Design**: Mobile-friendly interface with dark/light theme support
+- ðŸ‘¤ **User Authentication**: Secure registration and login with password reset functionality
+- ðŸ” **Browse Children**: View featured children available for sponsorship
+- ðŸ’³ **Flexible Payments**: Choose between monthly recurring or one-time sponsorships
+- ðŸ“Š **Dashboard**: Track active sponsorships, payment history, and child progress
+- ðŸ“§ **Email Notifications**: Receive confirmations and updates
+- ðŸ‘¥ **Profile Management**: Update personal information and view sponsorship history
+- ðŸ“± **Responsive Design**: Mobile-friendly interface with dark/light theme support
 
 ### For Administrators
-- 📝 **Child Management**: Add, edit, and remove children profiles
-- 📸 **Image Uploads**: Upload child photos and report images via cloud storage
-- 📈 **Progress Reports**: Create and manage progress reports for sponsored children
-- 💰 **Payment Tracking**: Monitor all payments and sponsorship statuses
-- 👨‍💼 **Sponsor Management**: View and manage sponsor accounts
-- 📊 **Analytics Dashboard**: Overview of sponsorships, payments, and system statistics
+- ðŸ“ **Child Management**: Add, edit, and remove children profiles
+- ðŸ“¸ **Image Uploads**: Upload child photos and report images via cloud storage
+- ðŸ“ˆ **Progress Reports**: Create and manage progress reports for sponsored children
+- ðŸ’° **Payment Tracking**: Monitor all payments and sponsorship statuses
+- ðŸ‘¨â€ðŸ’¼ **Sponsor Management**: View and manage sponsor accounts
+- ðŸ“Š **Analytics Dashboard**: Overview of sponsorships, payments, and system statistics
 
 ### General Features
-- 🔐 **Secure Authentication**: Passport.js with session management
-- 💳 **Stripe Integration**: PCI-compliant payment processing with webhook support
-- 📧 **Email System**: Automated emails using Resend
-- 🎨 **Modern UI**: Built with Shadcn UI components and Tailwind CSS
-- 🌓 **Theme Support**: Light and dark mode toggle
-- ⚡ **Real-time Updates**: React Query for efficient data fetching
-- 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices
-- 🔄 **Type Safety**: End-to-end TypeScript implementation
+- ðŸ” **Secure Authentication**: Passport.js with session management
+- ðŸ’³ **Stripe Integration**: PCI-compliant payment processing with webhook support
+- ðŸ“§ **Email System**: Automated emails using Resend
+- ðŸŽ¨ **Modern UI**: Built with Shadcn UI components and Tailwind CSS
+- ðŸŒ“ **Theme Support**: Light and dark mode toggle
+- âš¡ **Real-time Updates**: React Query for efficient data fetching
+- ðŸ“± **Responsive Design**: Works seamlessly on desktop and mobile devices
+- ðŸ”„ **Type Safety**: End-to-end TypeScript implementation
 
-## 🛠 Tech Stack
+## ðŸ›  Tech Stack
 
 ### Frontend
 - **Framework**: React 18 with TypeScript
@@ -79,7 +79,7 @@ This Child Sponsorship Platform is designed to facilitate educational support fo
 - **Payment Processing**: Stripe with stripe-replit-sync
 - **Email Service**: Resend
 - **Session Store**: connect-pg-simple (PostgreSQL)
-- **File Storage**: Google Cloud Storage (@google-cloud/storage)
+- **File Storage**: Replit Object Storage (prod) or local disk uploads (dev)
 - **File Upload**: Uppy (@uppy/aws-s3, @uppy/dashboard)
 
 ### DevOps & Tools
@@ -88,80 +88,80 @@ This Child Sponsorship Platform is designed to facilitate educational support fo
 - **Type Validation**: Zod with drizzle-zod
 - **Hosting**: Replit (configured with Replit integrations)
 
-## 📁 Project Structure
+## ðŸ“ Project Structure
 
 ```
 Child-Sponsor-Hub/
-├── client/                      # Frontend React application
-│   ├── public/                  # Static assets
-│   ├── src/
-│   │   ├── assets/              # Images and media
-│   │   ├── components/          # Reusable UI components
-│   │   │   ├── ui/              # Shadcn UI components
-│   │   │   ├── animated-container.tsx
-│   │   │   ├── theme-provider.tsx
-│   │   │   └── ObjectUploader.tsx
-│   │   ├── hooks/               # Custom React hooks
-│   │   │   ├── use-auth.tsx     # Authentication hook
-│   │   │   ├── use-toast.ts     # Toast notifications
-│   │   │   └── use-upload.ts    # File upload hook
-│   │   ├── lib/                 # Utility functions
-│   │   │   ├── protected-route.tsx
-│   │   │   ├── queryClient.ts
-│   │   │   └── utils.ts
-│   │   ├── pages/               # Page components
-│   │   │   ├── landing-page.tsx
-│   │   │   ├── auth-page.tsx
-│   │   │   ├── sponsor-dashboard.tsx
-│   │   │   ├── admin-dashboard.tsx
-│   │   │   ├── profile-page.tsx
-│   │   │   ├── sponsor-child.tsx
-│   │   │   ├── child-detail.tsx
-│   │   │   ├── contact.tsx
-│   │   │   ├── terms.tsx        # Terms of Service
-│   │   │   ├── privacy.tsx      # Privacy Policy
-│   │   │   └── [other pages]
-│   │   ├── App.tsx              # Main app component
-│   │   └── main.tsx             # Entry point
-│   └── index.html
-├── server/                      # Backend Express application
-│   ├── auth.ts                  # Authentication logic
-│   ├── config.ts                # Environment validation
-│   ├── db.ts                    # Database connection
-│   ├── email.ts                 # Email service
-│   ├── index.ts                 # Server entry point
-│   ├── rateLimit.ts             # Rate limiting middleware
-│   ├── routes.ts                # API route handlers
-│   ├── seed.ts                  # Database seeding
-│   ├── storage.ts               # Data access layer
-│   ├── stripeClient.ts          # Stripe configuration
-│   ├── webhookHandlers.ts       # Stripe webhook handlers
-│   └── replit_integrations/     # Replit-specific integrations
-│       └── object_storage/      # Cloud storage integration
-├── shared/                      # Shared code between client/server
-│   └── schema.ts                # Database schema and validation
-├── script/                      # Build and utility scripts
-│   └── build.ts
-├── drizzle.config.ts            # Drizzle ORM configuration
-├── package.json                 # Dependencies and scripts
-├── tsconfig.json                # TypeScript configuration
-├── tailwind.config.ts           # Tailwind CSS configuration
-├── vite.config.ts               # Vite build configuration
-└── README.md                    # This file
+â”œâ”€â”€ client/                      # Frontend React application
+â”‚   â”œâ”€â”€ public/                  # Static assets
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ assets/              # Images and media
+â”‚   â”‚   â”œâ”€â”€ components/          # Reusable UI components
+â”‚   â”‚   â”‚   â”œâ”€â”€ ui/              # Shadcn UI components
+â”‚   â”‚   â”‚   â”œâ”€â”€ animated-container.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ theme-provider.tsx
+â”‚   â”‚   â”‚   â””â”€â”€ ObjectUploader.tsx
+â”‚   â”‚   â”œâ”€â”€ hooks/               # Custom React hooks
+â”‚   â”‚   â”‚   â”œâ”€â”€ use-auth.tsx     # Authentication hook
+â”‚   â”‚   â”‚   â”œâ”€â”€ use-toast.ts     # Toast notifications
+â”‚   â”‚   â”‚   â””â”€â”€ use-upload.ts    # File upload hook
+â”‚   â”‚   â”œâ”€â”€ lib/                 # Utility functions
+â”‚   â”‚   â”‚   â”œâ”€â”€ protected-route.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ queryClient.ts
+â”‚   â”‚   â”‚   â””â”€â”€ utils.ts
+â”‚   â”‚   â”œâ”€â”€ pages/               # Page components
+â”‚   â”‚   â”‚   â”œâ”€â”€ landing-page.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ auth-page.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ sponsor-dashboard.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ admin-dashboard.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ profile-page.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ sponsor-child.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ child-detail.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ contact.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ terms.tsx        # Terms of Service
+â”‚   â”‚   â”‚   â”œâ”€â”€ privacy.tsx      # Privacy Policy
+â”‚   â”‚   â”‚   â””â”€â”€ [other pages]
+â”‚   â”‚   â”œâ”€â”€ App.tsx              # Main app component
+â”‚   â”‚   â””â”€â”€ main.tsx             # Entry point
+â”‚   â””â”€â”€ index.html
+â”œâ”€â”€ server/                      # Backend Express application
+â”‚   â”œâ”€â”€ auth.ts                  # Authentication logic
+â”‚   â”œâ”€â”€ config.ts                # Environment validation
+â”‚   â”œâ”€â”€ db.ts                    # Database connection
+â”‚   â”œâ”€â”€ email.ts                 # Email service
+â”‚   â”œâ”€â”€ index.ts                 # Server entry point
+â”‚   â”œâ”€â”€ rateLimit.ts             # Rate limiting middleware
+â”‚   â”œâ”€â”€ routes.ts                # API route handlers
+â”‚   â”œâ”€â”€ seed.ts                  # Database seeding
+â”‚   â”œâ”€â”€ storage.ts               # Data access layer
+â”‚   â”œâ”€â”€ stripeClient.ts          # Stripe configuration
+â”‚   â”œâ”€â”€ webhookHandlers.ts       # Stripe webhook handlers
+â”‚   â””â”€â”€ replit_integrations/     # Replit-specific integrations
+â”‚       â””â”€â”€ object_storage/      # Cloud storage integration
+â”œâ”€â”€ shared/                      # Shared code between client/server
+â”‚   â””â”€â”€ schema.ts                # Database schema and validation
+â”œâ”€â”€ script/                      # Build and utility scripts
+â”‚   â””â”€â”€ build.ts
+â”œâ”€â”€ drizzle.config.ts            # Drizzle ORM configuration
+â”œâ”€â”€ package.json                 # Dependencies and scripts
+â”œâ”€â”€ tsconfig.json                # TypeScript configuration
+â”œâ”€â”€ tailwind.config.ts           # Tailwind CSS configuration
+â”œâ”€â”€ vite.config.ts               # Vite build configuration
+â””â”€â”€ README.md                    # This file
 ```
 
-## 📦 Prerequisites
+## ðŸ“¦ Prerequisites
 
 Before running this application, ensure you have:
 
 - **Node.js**: Version 20.x or higher
 - **PostgreSQL**: Version 12 or higher
 - **npm** or **yarn**: Package manager
-- **Stripe Account**: For payment processing
-- **Resend Account**: For email service
-- **Google Cloud Storage**: For file uploads (optional, can be configured)
+- **Stripe Account**: For payment processing (optional for UI-only local testing)
+- **Resend Account**: For email service (optional; emails are mocked if not set)
+- **File Uploads**: Replit Object Storage (production) or Local uploads (dev)
 
-## 🚀 Installation
+## ðŸš€ Installation
 
 1. **Clone the repository**:
    ```bash
@@ -174,7 +174,7 @@ Before running this application, ensure you have:
    npm install
    ```
 
-## ⚙️ Configuration
+## âš™ï¸ Configuration
 
 Create a `.env` file in the root directory with the following variables:
 
@@ -190,14 +190,20 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Email (Resend)
 RESEND_API_KEY=re_...
 FROM_EMAIL=noreply@yourdomain.com
+ADMIN_EMAIL=admin@yourdomain.com
 
 # Session
 SESSION_SECRET=your-super-secret-session-key
 
-# Google Cloud Storage (if using)
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
-GOOGLE_CLOUD_STORAGE_BUCKET=your-bucket-name
-GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
+# File uploads (local dev)
+# Use "local" to store uploads on disk in ./uploads
+# In Replit, omit or set to "replit" to use Replit Object Storage
+UPLOAD_MODE=local
+
+# Google Cloud Storage (optional, if using outside Replit)
+# GOOGLE_CLOUD_PROJECT_ID=your-project-id
+# GOOGLE_CLOUD_STORAGE_BUCKET=your-bucket-name
+# GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
 
 # Replit Configuration (if deploying to Replit)
 REPLIT_DOMAINS=your-domain.replit.dev
@@ -205,7 +211,12 @@ REPLIT_CONNECTORS_HOSTNAME=connectors.replit.com
 REPL_IDENTITY=your-repl-identity
 ```
 
-## 🗄️ Database Setup
+### Local Uploads (Dev)
+
+When `UPLOAD_MODE=local`, uploads are stored on disk in the `uploads/` folder and served from:
+- `GET /uploads/:fileName`
+
+## ðŸ—„ï¸ Database Setup
 
 1. **Create PostgreSQL database**:
    ```sql
@@ -223,7 +234,7 @@ REPL_IDENTITY=your-repl-identity
    - Sample children profiles
    - Example sponsorships and reports
 
-## 🏃‍♂️ Running the Application
+## ðŸƒâ€â™‚ï¸ Running the Application
 
 ### Development Mode
 
@@ -257,65 +268,66 @@ Run TypeScript type checking:
 npm run check
 ```
 
-## 🌐 API Endpoints
+## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/logout` - Logout user
-- `GET /api/auth/me` - Get current user
+- `POST /api/register` - Register a new user
+- `POST /api/login` - Login user
+- `POST /api/logout` - Logout user
+- `GET /api/user` - Get current user
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password` - Reset password
 - `GET /api/auth/verify-reset-token/:token` - Verify reset token
 
 ### Children
 - `GET /api/children/featured` - Get featured children (public)
-- `GET /api/children` - Get all children (authenticated)
-- `GET /api/children/:id` - Get single child
-- `POST /api/children` - Create child (admin only)
-- `PUT /api/children/:id` - Update child (admin only)
-- `DELETE /api/children/:id` - Delete child (admin only)
+- `GET /api/children/available` - Get available children (authenticated)
+- `GET /api/children/:id` - Get single child (authenticated)
+- `GET /api/admin/children` - Get all children (admin only)
+- `POST /api/admin/children` - Create child (admin only)
+- `PUT /api/admin/children/:id` - Update child (admin only)
+- `DELETE /api/admin/children/:id` - Delete child (admin only)
 
 ### Sponsorships
-- `GET /api/sponsorships` - Get all sponsorships (admin)
 - `GET /api/sponsorships/my` - Get user's sponsorships
-- `POST /api/sponsorships/checkout` - Create Stripe checkout session
-- `POST /api/sponsorships/confirm` - Confirm sponsorship after payment
+- `POST /api/sponsorships` - Create sponsorship (internal fallback)
 - `POST /api/sponsorships/:id/cancel` - Cancel sponsorship
+- `GET /api/admin/sponsorships` - Get all sponsorships (admin only)
 
 ### Reports
-- `GET /api/reports` - Get all reports (admin)
 - `GET /api/reports/my` - Get reports for user's sponsored children
 - `GET /api/reports/child/:childId` - Get reports for specific child
-- `POST /api/reports` - Create report (admin only)
-- `PUT /api/reports/:id` - Update report (admin only)
-- `DELETE /api/reports/:id` - Delete report (admin only)
+- `GET /api/admin/reports` - Get all reports (admin only)
+- `POST /api/admin/reports` - Create report (admin only)
+- `PUT /api/admin/reports/:id` - Update report (admin only)
+- `DELETE /api/admin/reports/:id` - Delete report (admin only)
 
 ### Payments
-- `GET /api/payments` - Get all payments (admin)
 - `GET /api/payments/my` - Get user's payments
-
-### Users (Admin only)
-- `GET /api/users` - Get all users
-- `GET /api/users/:id` - Get specific user
-- `DELETE /api/users/:id` - Delete user
+- `GET /api/admin/payments` - Get all payments (admin only)
 
 ### Profile
+- `GET /api/profile` - Get current profile
 - `PUT /api/profile` - Update user profile
-- `POST /api/profile/change-password` - Change password
+- `PUT /api/profile/password` - Change password
+- `DELETE /api/profile` - Delete account (non-admin only)
 
 ### Contact
 - `POST /api/contact` - Submit contact form (rate limited)
 
 ### Stripe
 - `GET /api/stripe/publishable-key` - Get Stripe publishable key
-- `POST /api/webhooks/stripe` - Stripe webhook endpoint
+- `POST /api/stripe/create-checkout` - Create Stripe checkout session
+- `POST /api/stripe/confirm-sponsorship` - Confirm sponsorship after payment
+- `POST /api/stripe/webhook` - Stripe webhook endpoint
 
-### Object Storage
-- `POST /api/object-storage/upload` - Upload file to cloud storage
-- `GET /api/object-storage/:key` - Get file from cloud storage
+### Uploads
+- `POST /api/uploads/request-url` - Request upload URL (admin only)
+- `PUT /api/uploads/local/:fileName` - Local dev upload endpoint (`UPLOAD_MODE=local`)
+- `GET /objects/:objectPath` - Serve object storage files (Replit)
+- `GET /uploads/:fileName` - Serve local uploads (`UPLOAD_MODE=local`)
 
-## 👥 User Roles
+## ðŸ‘¥ User Roles
 
 ### Sponsor (Default Role)
 - Browse available children
@@ -336,12 +348,12 @@ npm run check
 
 ### Default Admin Credentials
 After seeding the database:
-- **Email**: admin@example.com
+- **Email**: admin@hopeconnect.org
 - **Password**: admin123
 
-⚠️ **Important**: Change these credentials immediately in production!
+âš ï¸ **Important**: Change these credentials immediately in production!
 
-## 💳 Payment Integration
+## ðŸ’³ Payment Integration
 
 ### Stripe Setup
 
@@ -350,28 +362,34 @@ After seeding the database:
 2. **Get API keys** from the Stripe Dashboard
 
 3. **Configure webhook endpoint**:
-   - Endpoint URL: `https://yourdomain.com/api/webhooks/stripe`
+   - Endpoint URL: `https://yourdomain.com/api/stripe/webhook`
    - Events to listen to:
-     - `checkout.session.completed`
      - `invoice.payment_succeeded`
      - `invoice.payment_failed`
      - `customer.subscription.deleted`
      - `customer.subscription.updated`
 
-4. **Webhook Handlers**:
+4. **Local development (Stripe CLI)**:
+   ```bash
+   stripe login
+   stripe listen --forward-to localhost:5000/api/stripe/webhook
+   ```
+   - Copy the webhook signing secret printed by Stripe CLI into `STRIPE_WEBHOOK_SECRET`.
+
+5. **Webhook Handlers**:
    The platform handles the following webhook events:
-   - **checkout.session.completed**: Creates sponsorship after successful payment
    - **invoice.payment_succeeded**: Records monthly recurring payments
-   - **invoice.payment_failed**: Updates payment status
+   - **invoice.payment_failed**: Records failed payment attempts
    - **customer.subscription.deleted**: Cancels sponsorship
-   - **customer.subscription.updated**: Updates sponsorship details
+   - **customer.subscription.updated**: Cancels sponsorship when status is `canceled`
+   - **checkout.session.completed**: Sponsorship confirmation is handled via `/api/stripe/confirm-sponsorship` after redirect
 
 ### Payment Types
 
 - **Monthly Recurring**: Automatic monthly charges via Stripe subscriptions
 - **One-time**: Single payment for a specific period
 
-## 📧 Email Notifications
+## ðŸ“§ Email Notifications
 
 The platform sends automated emails for:
 
@@ -390,7 +408,7 @@ RESEND_API_KEY=re_your_api_key
 FROM_EMAIL=noreply@yourdomain.com
 ```
 
-## 🎨 UI/UX Features
+## ðŸŽ¨ UI/UX Features
 
 - **Responsive Design**: Mobile-first approach with breakpoints for all devices
 - **Dark/Light Mode**: User preference with persistence
@@ -400,7 +418,7 @@ FROM_EMAIL=noreply@yourdomain.com
 - **Form Validation**: Real-time validation with helpful error messages
 - **Accessibility**: ARIA labels and keyboard navigation support
 
-## 🔒 Security Features
+## ðŸ”’ Security Features
 
 - **Password Hashing**: Scrypt for secure password storage
 - **Session Management**: Secure, HTTP-only cookies with PostgreSQL store
@@ -416,14 +434,14 @@ FROM_EMAIL=noreply@yourdomain.com
 - **Stripe Webhook Verification**: Validates webhook signatures
 - **Input Validation**: Zod schemas for all user inputs
 
-## 📜 Legal Pages
+## ðŸ“œ Legal Pages
 
 The platform includes required legal pages for compliance:
 
 - **Terms of Service** (`/terms`) - User agreement and platform rules
 - **Privacy Policy** (`/privacy`) - GDPR and CCPA compliant privacy policy
 
-## 🧪 Testing
+## ðŸ§ª Testing
 
 To add tests to this project, you can use:
 
@@ -435,7 +453,7 @@ npm install --save-dev vitest @testing-library/react @testing-library/jest-dom
 npm test
 ```
 
-## 📝 Contributing
+## ðŸ“ Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -445,17 +463,17 @@ Contributions are welcome! Please follow these steps:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## ðŸ“„ License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🤝 Support
+## ðŸ¤ Support
 
 For support, email support@example.com or open an issue in the repository.
 
-## 🙏 Acknowledgments
+## ðŸ™ Acknowledgments
 
-- Built with ❤️ for children in need of educational support
+- Built with â¤ï¸ for children in need of educational support
 - UI components from [Shadcn UI](https://ui.shadcn.com/)
 - Icons from [Lucide](https://lucide.dev/)
 - Powered by [Stripe](https://stripe.com/) for payments
@@ -463,4 +481,6 @@ For support, email support@example.com or open an issue in the repository.
 
 ---
 
-**Made with 💙 to help children achieve their educational dreams**
+**Made with ðŸ’™ to help children achieve their educational dreams**
+
+

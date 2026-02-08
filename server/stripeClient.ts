@@ -2,7 +2,23 @@ import Stripe from 'stripe';
 
 let connectionSettings: any;
 
+function getDirectCredentials() {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+
+  if (secretKey && publishableKey) {
+    return { secretKey, publishableKey };
+  }
+
+  return null;
+}
+
 async function getCredentials() {
+  const direct = getDirectCredentials();
+  if (direct) {
+    return direct;
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -10,8 +26,11 @@ async function getCredentials() {
       ? 'depl ' + process.env.WEB_REPL_RENEWAL
       : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (!hostname || !xReplitToken) {
+    throw new Error(
+      'Stripe credentials not found. Set STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY ' +
+      'for local development or configure Replit Stripe connectors.'
+    );
   }
 
   const connectorName = 'stripe';

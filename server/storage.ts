@@ -55,6 +55,7 @@ export interface IStorage {
   
   getPayments(): Promise<Payment[]>;
   getPaymentsBySponsorId(sponsorId: number): Promise<Payment[]>;
+  getPaymentByStripePaymentId(stripePaymentId: string): Promise<Payment | undefined>;
   createPayment(payment: InsertPayment): Promise<Payment>;
   
   deleteChild(id: number): Promise<boolean>;
@@ -211,6 +212,11 @@ export class DatabaseStorage implements IStorage {
     return allPayments.sort((a, b) => 
       new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
     );
+  }
+
+  async getPaymentByStripePaymentId(stripePaymentId: string): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.stripePaymentId, stripePaymentId));
+    return payment || undefined;
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {

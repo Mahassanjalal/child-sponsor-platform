@@ -7,6 +7,8 @@ import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
 import { validateEnvironment } from "./config";
+import Stripe from "stripe";
+import { processLocalStripeWebhook } from "./stripeWebhookLocal";
 
 // Validate environment variables before starting
 validateEnvironment();
@@ -49,19 +51,24 @@ async function initStripe() {
 
     const stripeSync = await getStripeSync();
 
-    console.log('Setting up managed webhook...');
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-    try {
-      const result = await stripeSync.findOrCreateManagedWebhook(
-        `${webhookBaseUrl}/api/stripe/webhook`
-      );
-      if (result?.webhook?.url) {
-        console.log(`Webhook configured: ${result.webhook.url}`);
-      } else {
-        console.log('Webhook setup skipped - will be configured on next request');
+    const replDomain = process.env.REPLIT_DOMAINS?.split(',')[0];
+    if (replDomain) {
+      console.log('Setting up managed webhook...');
+      const webhookBaseUrl = `https://${replDomain}`;
+      try {
+        const result = await stripeSync.findOrCreateManagedWebhook(
+          `${webhookBaseUrl}/api/stripe/webhook`
+        );
+        if (result?.webhook?.url) {
+          console.log(`Webhook configured: ${result.webhook.url}`);
+        } else {
+          console.log('Webhook setup skipped - will be configured on next request');
+        }
+      } catch (webhookError) {
+        console.log('Webhook setup skipped:', webhookError);
       }
-    } catch (webhookError) {
-      console.log('Webhook setup skipped:', webhookError);
+    } else {
+      console.log('REPLIT_DOMAINS not set - skipping managed webhook setup');
     }
 
     console.log('Syncing Stripe data...');
@@ -98,7 +105,25 @@ async function initStripe() {
           return res.status(500).json({ error: 'Webhook processing error' });
         }
 
-        await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+        if (process.env.STRIPE_WEBHOOK_SECRET) {
+          if (!process.env.STRIPE_SECRET_KEY) {
+            return res.status(500).json({ error: 'STRIPE_SECRET_KEY not set' });
+          }
+
+          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+            apiVersion: '2025-08-27.basil',
+          });
+
+          const event = stripe.webhooks.constructEvent(
+            req.body as Buffer,
+            sig,
+            process.env.STRIPE_WEBHOOK_SECRET
+          );
+
+          await processLocalStripeWebhook(event);
+        } else {
+          await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+        }
 
         res.status(200).json({ received: true });
       } catch (error: any) {

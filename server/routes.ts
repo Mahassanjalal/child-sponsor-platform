@@ -7,14 +7,14 @@ import { sendPasswordResetEmail, sendWelcomeEmail, sendSponsorshipConfirmationEm
 import { passwordResetRateLimiter, contactRateLimiter } from "./rateLimit";
 import { randomBytes } from "crypto";
 import { z } from "zod";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerUploadRoutes } from "./uploads";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   setupAuth(app);
-  registerObjectStorageRoutes(app);
+  registerUploadRoutes(app);
 
   const forgotPasswordSchema = z.object({
     email: z.string().email("Please enter a valid email"),
