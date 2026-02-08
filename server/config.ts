@@ -11,7 +11,7 @@ interface EnvConfig {
   RESEND_API_KEY?: string;
   FROM_EMAIL?: string;
   ADMIN_EMAIL?: string;
-  REPLIT_DOMAINS?: string;
+  BASE_URL?: string;
 }
 
 const requiredEnvVars = ['DATABASE_URL', 'SESSION_SECRET'] as const;
@@ -20,7 +20,7 @@ const optionalEnvVars = [
   'RESEND_API_KEY',
   'FROM_EMAIL', 
   'ADMIN_EMAIL',
-  'REPLIT_DOMAINS',
+  'BASE_URL',
   'NODE_ENV',
   'PORT',
 ] as const;
@@ -76,7 +76,7 @@ export function validateEnvironment(): EnvConfig {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     FROM_EMAIL: process.env.FROM_EMAIL,
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
-    REPLIT_DOMAINS: process.env.REPLIT_DOMAINS,
+    BASE_URL: process.env.BASE_URL,
   };
 }
 

@@ -327,7 +327,9 @@ export async function registerRoutes(
         customerId = customer.id;
       }
 
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      const baseUrl =
+        process.env.BASE_URL ||
+        `http://localhost:${process.env.PORT || "5000"}`;
       const amount = Math.round(parseFloat(child.monthlyAmount) * 100);
 
       let session;

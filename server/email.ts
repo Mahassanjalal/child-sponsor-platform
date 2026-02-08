@@ -230,8 +230,10 @@ export async function sendContactEmail(
 }
 
 function getBaseUrl(): string {
-  if (process.env.REPLIT_DOMAINS) {
-    return `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
+  if (process.env.BASE_URL) {
+    return process.env.BASE_URL;
   }
-  return 'http://localhost:5000';
+
+  const port = process.env.PORT || '5000';
+  return `http://localhost:${port}`;
 }

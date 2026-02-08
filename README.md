@@ -76,17 +76,17 @@ This Child Sponsorship Platform is designed to facilitate educational support fo
 - **Authentication**: Passport.js with express-session
 - **Database ORM**: Drizzle ORM
 - **Database**: PostgreSQL
-- **Payment Processing**: Stripe with stripe-replit-sync
+- **Payment Processing**: Stripe
 - **Email Service**: Resend
 - **Session Store**: connect-pg-simple (PostgreSQL)
-- **File Storage**: Replit Object Storage (prod) or local disk uploads (dev)
+- **File Storage**: Local disk uploads
 - **File Upload**: Uppy (@uppy/aws-s3, @uppy/dashboard)
 
 ### DevOps & Tools
 - **Development**: tsx for hot reloading
 - **Database Migrations**: Drizzle Kit
 - **Type Validation**: Zod with drizzle-zod
-- **Hosting**: Replit (configured with Replit integrations)
+- **Hosting**: Any Node.js-compatible platform
 
 ## ðŸ“ Project Structure
 
@@ -135,9 +135,7 @@ Child-Sponsor-Hub/
       seed.ts                  # Database seeding
       storage.ts               # Data access layer
       stripeClient.ts          # Stripe configuration
-      webhookHandlers.ts       # Stripe webhook handlers
-      replit_integrations/     # Replit-specific integrations
-         object_storage/      # Cloud storage integration
+      stripeWebhookLocal.ts    # Stripe webhook handlers
    shared/                      # Shared code between client/server
       schema.ts                # Database schema and validation
    script/                      # Build and utility scripts
@@ -159,7 +157,7 @@ Before running this application, ensure you have:
 - **npm** or **yarn**: Package manager
 - **Stripe Account**: For payment processing (optional for UI-only local testing)
 - **Resend Account**: For email service (optional; emails are mocked if not set)
-- **File Uploads**: Replit Object Storage (production) or Local uploads (dev)
+- **File Uploads**: Local uploads stored in `./uploads`
 
 ## ðŸš€ Installation
 
@@ -195,25 +193,13 @@ ADMIN_EMAIL=admin@yourdomain.com
 # Session
 SESSION_SECRET=your-super-secret-session-key
 
-# File uploads (local dev)
-# Use "local" to store uploads on disk in ./uploads
-# In Replit, omit or set to "replit" to use Replit Object Storage
-UPLOAD_MODE=local
-
-# Google Cloud Storage (optional, if using outside Replit)
-# GOOGLE_CLOUD_PROJECT_ID=your-project-id
-# GOOGLE_CLOUD_STORAGE_BUCKET=your-bucket-name
-# GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
-
-# Replit Configuration (if deploying to Replit)
-REPLIT_DOMAINS=your-domain.replit.dev
-REPLIT_CONNECTORS_HOSTNAME=connectors.replit.com
-REPL_IDENTITY=your-repl-identity
+# App URL (used for emails + Stripe checkout redirects)
+BASE_URL=http://localhost:5000
 ```
 
 ### Local Uploads (Dev)
 
-When `UPLOAD_MODE=local`, uploads are stored on disk in the `uploads/` folder and served from:
+Uploads are stored on disk in the `uploads/` folder and served from:
 - `GET /uploads/:fileName`
 
 ## ðŸ—„ï¸ Database Setup
@@ -323,9 +309,8 @@ npm run check
 
 ### Uploads
 - `POST /api/uploads/request-url` - Request upload URL (admin only)
-- `PUT /api/uploads/local/:fileName` - Local dev upload endpoint (`UPLOAD_MODE=local`)
-- `GET /objects/:objectPath` - Serve object storage files (Replit)
-- `GET /uploads/:fileName` - Serve local uploads (`UPLOAD_MODE=local`)
+- `PUT /api/uploads/local/:fileName` - Local upload endpoint
+- `GET /uploads/:fileName` - Serve local uploads
 
 ## ðŸ‘¥ User Roles
 
@@ -482,5 +467,4 @@ For support, email support@example.com or open an issue in the repository.
 ---
 
 **Made with ðŸ’™ to help children achieve their educational dreams**
-
 
