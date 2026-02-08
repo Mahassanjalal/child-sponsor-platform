@@ -1,6 +1,6 @@
-import { db } from "./db";
+import { db } from "./config/index";
 import { users, children, sponsorships, reports, payments } from "@shared/schema";
-import { hashPassword } from "./auth";
+import { hashPassword } from "./middleware";
 import { eq } from "drizzle-orm";
 
 const sampleChildren = [

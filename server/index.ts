@@ -1,14 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seedDatabase } from "./seed";
-import { getStripeSecretKey } from "./stripeClient";
-import { validateEnvironment } from "./config";
 import Stripe from "stripe";
-import { processLocalStripeWebhook } from "./stripeWebhookLocal";
-// import dotenv from "dotenv";
-// dotenv.config();
+
+// Import from organized modules
+import { validateEnvironment } from "./config";
+import { registerRoutes } from "./routes";
+import { seedDatabase } from "./seed";
+import { serveStatic, log } from "./utils";
+import { getStripeSecretKey, processLocalStripeWebhook } from "./services";
+
+// Re-export log for backward compatibility
+export { log };
 
 // Validate environment variables before starting
 validateEnvironment();
@@ -20,17 +22,6 @@ declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
-}
-
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
 }
 
 async function initStripe() {
@@ -77,7 +68,7 @@ async function initStripe() {
         }
 
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-          apiVersion: '2025-08-27.basil',
+          apiVersion: '2025-11-17.clover',
         });
 
         const event = stripe.webhooks.constructEvent(
@@ -154,7 +145,7 @@ async function initStripe() {
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
-    const { setupVite } = await import("./vite");
+    const { setupVite } = await import("./utils/vite");
     await setupVite(httpServer, app);
   }
 

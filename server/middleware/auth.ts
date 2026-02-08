@@ -1,13 +1,16 @@
+/**
+ * Authentication middleware and Passport.js setup
+ */
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import type { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { storage } from "./storage";
+import { storage } from "../storage";
 import { User as SelectUser } from "@shared/schema";
-import { sendWelcomeEmail } from "./email";
-import { loginRateLimiter, registerRateLimiter } from "./rateLimit";
+import { sendWelcomeEmail } from "../services/email.service";
+import { loginRateLimiter, registerRateLimiter } from "./rate-limit";
 
 declare global {
   namespace Express {
@@ -17,27 +20,36 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
-export async function hashPassword(password: string) {
+/**
+ * Hash a password using scrypt
+ */
+export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
 
-export async function comparePasswords(supplied: string, stored: string) {
+/**
+ * Compare a supplied password with a stored hash
+ */
+export async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-export function setupAuth(app: Express) {
+/**
+ * Setup Passport.js authentication and session handling
+ */
+export function setupAuth(app: Express): void {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET!,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -77,6 +89,7 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Register endpoint
   app.post("/api/register", registerRateLimiter, async (req, res, next) => {
     try {
       const { email, password, firstName, lastName } = req.body;
@@ -129,6 +142,7 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Login endpoint
   app.post("/api/login", loginRateLimiter, (req, res, next) => {
     passport.authenticate("local", (err: any, user: SelectUser | false, info: any) => {
       if (err) return next(err);
@@ -143,6 +157,7 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
+  // Logout endpoint
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
@@ -150,6 +165,7 @@ export function setupAuth(app: Express) {
     });
   });
 
+  // Get current user endpoint
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { password: _, ...userWithoutPassword } = req.user!;
@@ -157,16 +173,24 @@ export function setupAuth(app: Express) {
   });
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+/**
+ * Middleware to require authentication
+ */
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.isAuthenticated()) {
-    return res.sendStatus(401);
+    res.sendStatus(401);
+    return;
   }
   next();
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+/**
+ * Middleware to require admin role
+ */
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.isAuthenticated() || req.user?.role !== "admin") {
-    return res.sendStatus(403);
+    res.sendStatus(403);
+    return;
   }
   next();
 }

@@ -71,6 +71,15 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Settings table for admin configuration
+export const settings = pgTable("settings", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  category: text("category").notNull().default("general"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   sponsorships: many(sponsorships),
 }));
@@ -180,3 +189,27 @@ export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Setting = typeof settings.$inferSelect;
+
+// Settings schemas for validation
+export const settingsSchema = z.object({
+  // General settings
+  siteName: z.string().min(1).optional(),
+  siteDescription: z.string().optional(),
+  contactEmail: z.string().email().optional(),
+  supportPhone: z.string().optional(),
+  defaultMonthlyAmount: z.string().optional(),
+  currency: z.string().optional(),
+  // Email settings
+  welcomeEmailSubject: z.string().optional(),
+  welcomeEmailEnabled: z.boolean().optional(),
+  reportNotificationEnabled: z.boolean().optional(),
+  paymentReceiptEnabled: z.boolean().optional(),
+  paymentFailedAlertEnabled: z.boolean().optional(),
+  // Notification settings
+  newSponsorNotification: z.boolean().optional(),
+  paymentFailureNotification: z.boolean().optional(),
+  lowChildAvailabilityAlert: z.boolean().optional(),
+  lowChildThreshold: z.string().optional(),
+  weeklyReportEnabled: z.boolean().optional(),
+});

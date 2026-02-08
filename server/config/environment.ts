@@ -48,30 +48,23 @@ export function validateEnvironment(): EnvConfig {
     warnings.push('RESEND_API_KEY not set - email functionality will be mocked');
   }
   if (!process.env.FROM_EMAIL) {
-    warnings.push('FROM_EMAIL not set - using default noreply@hopeconnect.org');
+    warnings.push('FROM_EMAIL not set - using default sender');
   }
-  if (!process.env.ADMIN_EMAIL) {
-    warnings.push('ADMIN_EMAIL not set - contact form emails will go to admin@hopeconnect.org');
-  }
-
-  // Validate SESSION_SECRET strength
-  const sessionSecret = process.env.SESSION_SECRET!;
-  if (sessionSecret.length < 32) {
-    warnings.push('SESSION_SECRET is shorter than 32 characters - consider using a stronger secret');
+  if (!process.env.BASE_URL) {
+    warnings.push('BASE_URL not set - using localhost for email links');
   }
 
-  // Log warnings
-  if (warnings.length > 0 && process.env.NODE_ENV === 'production') {
-    console.warn('⚠️  Environment warnings:');
-    warnings.forEach(w => console.warn(`   - ${w}`));
+  // Log warnings in development
+  if (process.env.NODE_ENV !== 'production' && warnings.length > 0) {
+    console.log('\n⚠️  Optional environment variables not set:');
+    warnings.forEach(w => console.log(`   - ${w}`));
+    console.log('');
   }
-
-  console.log('✅ Environment configuration validated');
 
   return {
     DATABASE_URL: process.env.DATABASE_URL!,
     SESSION_SECRET: process.env.SESSION_SECRET!,
-    NODE_ENV: (process.env.NODE_ENV as EnvConfig['NODE_ENV']) || 'development',
+    NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
     PORT: parseInt(process.env.PORT || '5000', 10),
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     FROM_EMAIL: process.env.FROM_EMAIL,
@@ -80,4 +73,14 @@ export function validateEnvironment(): EnvConfig {
   };
 }
 
-export const config = validateEnvironment();
+export function getBaseUrl(): string {
+  return process.env.BASE_URL || 'http://localhost:5000';
+}
+
+export function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+export function isDevelopment(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}

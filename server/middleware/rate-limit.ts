@@ -15,11 +15,11 @@ const rateLimitStore = new Map<string, RateLimitEntry>();
 // Clean up expired entries periodically
 setInterval(() => {
   const now = Date.now();
-  for (const [key, entry] of rateLimitStore.entries()) {
+  rateLimitStore.forEach((entry, key) => {
     if (entry.resetTime < now) {
       rateLimitStore.delete(key);
     }
-  }
+  });
 }, 60000); // Clean every minute
 
 interface RateLimitOptions {
@@ -29,6 +29,9 @@ interface RateLimitOptions {
   keyGenerator?: (req: Request) => string;  // Custom key generator
 }
 
+/**
+ * Create a custom rate limiter with specified options
+ */
 export function createRateLimiter(options: RateLimitOptions) {
   const {
     windowMs,
@@ -74,35 +77,35 @@ export function createRateLimiter(options: RateLimitOptions) {
 
 // Pre-configured rate limiters for common use cases
 
-// Strict rate limit for login attempts (5 attempts per 15 minutes)
+/** Strict rate limit for login attempts (5 attempts per 15 minutes) */
 export const loginRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   maxRequests: 5,
   message: "Too many login attempts. Please try again in 15 minutes.",
 });
 
-// Moderate rate limit for registration (3 per hour)
+/** Moderate rate limit for registration (3 per hour) */
 export const registerRateLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
   maxRequests: 3,
   message: "Too many registration attempts. Please try again later.",
 });
 
-// Rate limit for password reset requests (3 per hour)
+/** Rate limit for password reset requests (3 per hour) */
 export const passwordResetRateLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
   maxRequests: 3,
   message: "Too many password reset requests. Please try again later.",
 });
 
-// Rate limit for contact form (5 per hour)
+/** Rate limit for contact form (5 per hour) */
 export const contactRateLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
   maxRequests: 5,
   message: "Too many messages sent. Please try again later.",
 });
 
-// General API rate limit (100 requests per minute)
+/** General API rate limit (100 requests per minute) */
 export const generalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 100,

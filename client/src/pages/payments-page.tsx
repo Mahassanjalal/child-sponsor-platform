@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -32,8 +34,19 @@ import {
   TrendingUp,
   Receipt,
   Filter,
+  ExternalLink,
 } from "lucide-react";
 import type { Payment } from "@shared/schema";
+
+interface PaymentMethod {
+  id: string;
+  card: {
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  };
+}
 
 export default function PaymentsPage() {
   const { user } = useAuth();
@@ -44,6 +57,10 @@ export default function PaymentsPage() {
 
   const { data: payments, isLoading } = useQuery<Payment[]>({
     queryKey: ["/api/payments/my"],
+  });
+
+  const { data: paymentMethods, isLoading: loadingPaymentMethods } = useQuery<PaymentMethod[]>({
+    queryKey: ["/api/stripe/payment-methods"],
   });
 
   // Calculate stats
@@ -278,28 +295,51 @@ export default function PaymentsPage() {
         </CardContent>
       </Card>
 
-      {/* Payment Methods (Placeholder) */}
+      {/* Payment Methods */}
       <Card>
         <CardHeader>
-          <CardTitle>Payment Methods</CardTitle>
-          <CardDescription>Manage your saved payment methods</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Payment Methods</CardTitle>
+              <CardDescription>Your saved payment methods</CardDescription>
+            </div>
+            <Link href="/profile">
+              <Button variant="outline" size="sm" className="gap-2">
+                Manage
+                <ExternalLink className="w-3 h-3" />
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/50">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-8 rounded bg-gradient-to-r from-blue-600 to-blue-400 flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="font-medium">•••• •••• •••• 4242</p>
-                <p className="text-sm text-muted-foreground">Expires 12/25</p>
-              </div>
+          {loadingPaymentMethods ? (
+            <div className="space-y-3">
+              <Skeleton className="h-16 w-full rounded-xl" />
             </div>
-            <Badge variant="outline">Default</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            Payment methods are managed securely through Stripe. Contact support to update your payment information.
-          </p>
+          ) : paymentMethods && paymentMethods.length > 0 ? (
+            <div className="space-y-3">
+              {paymentMethods.slice(0, 2).map((method, index) => (
+                <div key={method.id} className="flex items-center justify-between p-4 rounded-xl border bg-muted/50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-8 rounded bg-gradient-to-r from-blue-600 to-blue-400 flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium capitalize">{method.card.brand} •••• {method.card.last4}</p>
+                      <p className="text-sm text-muted-foreground">Expires {method.card.exp_month.toString().padStart(2, '0')}/{method.card.exp_year.toString().slice(-2)}</p>
+                    </div>
+                  </div>
+                  {index === 0 && <Badge variant="outline">Default</Badge>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-50" />
+              <p>No payment methods saved</p>
+              <p className="text-sm mt-1">Add a payment method when you sponsor a child</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

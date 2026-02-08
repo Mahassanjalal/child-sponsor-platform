@@ -5,6 +5,7 @@ import {
   reports,
   payments,
   passwordResetTokens,
+  settings,
   type User,
   type InsertUser,
   type Child,
@@ -15,12 +16,12 @@ import {
   type InsertReport,
   type Payment,
   type InsertPayment,
+  type Setting,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./config/index";
 import { eq, and, desc, lt, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { pool } from "./db";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -70,6 +71,11 @@ export interface IStorage {
   cancelSponsorship(id: number): Promise<Sponsorship | undefined>;
   getSponsorshipByStripeSubscriptionId(subscriptionId: string): Promise<Sponsorship | undefined>;
   deleteUser(id: number): Promise<boolean>;
+  
+  // Settings methods
+  getSettings(): Promise<Record<string, string>>;
+  updateSettings(settingsData: Record<string, string>): Promise<void>;
+  getSetting(key: string): Promise<string | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -298,6 +304,41 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
     
     return true;
+  }
+
+  // Settings methods
+  async getSettings(): Promise<Record<string, string>> {
+    const allSettings = await db.select().from(settings);
+    const result: Record<string, string> = {};
+    for (const setting of allSettings) {
+      result[setting.key] = setting.value;
+    }
+    return result;
+  }
+
+  async getSetting(key: string): Promise<string | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+    return setting?.value;
+  }
+
+  async updateSettings(settingsData: Record<string, string>): Promise<void> {
+    for (const [key, value] of Object.entries(settingsData)) {
+      const existing = await db.select().from(settings).where(eq(settings.key, key));
+      if (existing.length > 0) {
+        await db.update(settings)
+          .set({ value, updatedAt: new Date() })
+          .where(eq(settings.key, key));
+      } else {
+        // Determine category based on key prefix
+        let category = "general";
+        if (key.includes("Email") || key.includes("email")) {
+          category = "email";
+        } else if (key.includes("Notification") || key.includes("notification") || key.includes("Alert") || key.includes("Threshold")) {
+          category = "notifications";
+        }
+        await db.insert(settings).values({ key, value, category });
+      }
+    }
   }
 }
 

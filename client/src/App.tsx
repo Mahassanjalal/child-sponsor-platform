@@ -22,7 +22,6 @@ import NotFound from "@/pages/not-found";
 
 // Protected Pages (rendered inside DashboardShell)
 import SponsorDashboard from "@/pages/sponsor-dashboard";
-import AdminDashboard from "@/pages/admin-dashboard";
 import ProfilePage from "@/pages/profile-page";
 import SponsorChild from "@/pages/sponsor-child";
 import SponsorSuccess from "@/pages/sponsor-success";
@@ -30,6 +29,16 @@ import ChildDetailPage from "@/pages/child-detail";
 import ReportsPage from "@/pages/reports-page";
 import PaymentsPage from "@/pages/payments-page";
 import MyChildrenPage from "@/pages/my-children-page";
+
+// Admin Pages
+import {
+  AdminOverview,
+  AdminChildren,
+  AdminSponsors,
+  AdminReports,
+  AdminPayments,
+  AdminSettings,
+} from "@/pages/admin";
 
 // Loading component
 function LoadingScreen() {
@@ -74,12 +83,12 @@ function ProtectedDashboardRoutes() {
         {/* Admin Routes */}
         {isAdmin && (
           <>
-            <Route path="/admin" component={AdminDashboard} />
-            <Route path="/admin/children" component={AdminDashboard} />
-            <Route path="/admin/sponsors" component={AdminDashboard} />
-            <Route path="/admin/reports" component={AdminDashboard} />
-            <Route path="/admin/payments" component={AdminDashboard} />
-            <Route path="/admin/settings" component={AdminDashboard} />
+            <Route path="/admin" component={AdminOverview} />
+            <Route path="/admin/children" component={AdminChildren} />
+            <Route path="/admin/sponsors" component={AdminSponsors} />
+            <Route path="/admin/reports" component={AdminReports} />
+            <Route path="/admin/payments" component={AdminPayments} />
+            <Route path="/admin/settings" component={AdminSettings} />
           </>
         )}
         

@@ -1,15 +1,21 @@
+/**
+ * Stripe webhook event processor
+ */
 import Stripe from "stripe";
-import { storage } from "./storage";
+import { storage } from "../storage";
 
-function toAmountString(amountInCents: number | null | undefined) {
+function toAmountString(amountInCents: number | null | undefined): string {
   const cents = typeof amountInCents === "number" ? amountInCents : 0;
   return (cents / 100).toFixed(2);
 }
 
-export async function processLocalStripeWebhook(event: Stripe.Event) {
+/**
+ * Process Stripe webhook events locally
+ */
+export async function processLocalStripeWebhook(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "invoice.payment_succeeded": {
-      const invoice = event.data.object as Stripe.Invoice;
+      const invoice = event.data.object as any;
       const subscriptionId = invoice.subscription?.toString();
       if (!subscriptionId) return;
 
@@ -34,7 +40,7 @@ export async function processLocalStripeWebhook(event: Stripe.Event) {
     }
 
     case "invoice.payment_failed": {
-      const invoice = event.data.object as Stripe.Invoice;
+      const invoice = event.data.object as any;
       const subscriptionId = invoice.subscription?.toString();
       if (!subscriptionId) return;
 

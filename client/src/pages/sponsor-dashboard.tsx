@@ -180,7 +180,6 @@ export default function SponsorDashboard() {
               value={`$${totalDonated.toFixed(0)}`}
               subtitle="Lifetime contribution"
               icon={DollarSign}
-              trend={{ value: 12, label: "vs last month" }}
             />
             <DashboardStatCard
               title="Reports Received"

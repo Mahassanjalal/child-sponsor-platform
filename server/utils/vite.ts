@@ -1,14 +1,20 @@
+/**
+ * Vite development server setup
+ */
 import { type Express } from "express";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
+import viteConfig from "../../vite.config";
 import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
-export async function setupVite(server: Server, app: Express) {
+/**
+ * Setup Vite development server with HMR
+ */
+export async function setupVite(server: Server, app: Express): Promise<void> {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server, path: "/vite-hmr" },
@@ -38,18 +44,20 @@ export async function setupVite(server: Server, app: Express) {
       const clientTemplate = path.resolve(
         import.meta.dirname,
         "..",
+        "..",
         "client",
-        "index.html",
+        "index.html"
       );
 
-      // always reload the index.html file from disk incase it changes
+      // Always reload the index.html file from disk in case it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
+        `src="/src/main.tsx?v=${nanoid()}"`
       );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      template = await vite.transformIndexHtml(url, template);
+
+      res.status(200).set({ "Content-Type": "text/html" }).end(template);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);

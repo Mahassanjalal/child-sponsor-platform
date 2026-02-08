@@ -1,4 +1,8 @@
+/**
+ * Email service using Resend API
+ */
 import { Resend } from 'resend';
+import { getBaseUrl } from '../config/index';
 
 let resend: Resend | null = null;
 
@@ -16,7 +20,14 @@ function getResend(): Resend | null {
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@hopeconnect.org';
 const APP_NAME = 'HopeConnect';
 
-export async function sendPasswordResetEmail(email: string, resetToken: string, firstName: string): Promise<boolean> {
+/**
+ * Send password reset email
+ */
+export async function sendPasswordResetEmail(
+  email: string, 
+  resetToken: string, 
+  firstName: string
+): Promise<boolean> {
   const client = getResend();
   if (!client) {
     console.log(`[Email Mock] Password reset email would be sent to ${email}`);
@@ -50,6 +61,9 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
   }
 }
 
+/**
+ * Send welcome email to new users
+ */
 export async function sendWelcomeEmail(email: string, firstName: string): Promise<boolean> {
   const client = getResend();
   if (!client) {
@@ -85,6 +99,9 @@ export async function sendWelcomeEmail(email: string, firstName: string): Promis
   }
 }
 
+/**
+ * Send sponsorship confirmation email
+ */
 export async function sendSponsorshipConfirmationEmail(
   email: string,
   firstName: string,
@@ -127,6 +144,9 @@ export async function sendSponsorshipConfirmationEmail(
   }
 }
 
+/**
+ * Send new report notification email
+ */
 export async function sendNewReportEmail(
   email: string,
   firstName: string,
@@ -164,6 +184,9 @@ export async function sendNewReportEmail(
   }
 }
 
+/**
+ * Send contact form email
+ */
 export async function sendContactEmail(
   name: string,
   email: string,
@@ -227,13 +250,4 @@ export async function sendContactEmail(
     console.error('Failed to send contact email:', error);
     return false;
   }
-}
-
-function getBaseUrl(): string {
-  if (process.env.BASE_URL) {
-    return process.env.BASE_URL;
-  }
-
-  const port = process.env.PORT || '5000';
-  return `http://localhost:${port}`;
 }

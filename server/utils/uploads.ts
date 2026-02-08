@@ -1,10 +1,13 @@
+/**
+ * File upload handling utilities and routes
+ */
 import type { Express, Request, Response } from "express";
 import express from "express";
 import path from "path";
 import fs from "fs/promises";
 import fssync from "fs";
 import { randomUUID } from "crypto";
-import { requireAdmin } from "./auth";
+import { requireAdmin } from "../middleware";
 
 const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",
@@ -18,13 +21,19 @@ const MAX_FILE_SIZE_LABEL = "10mb";
 
 const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
 
-function ensureUploadsDir() {
+/**
+ * Ensure uploads directory exists
+ */
+function ensureUploadsDir(): void {
   if (!fssync.existsSync(UPLOAD_DIR)) {
     fssync.mkdirSync(UPLOAD_DIR, { recursive: true });
   }
 }
 
-function getExtensionFromType(contentType: string, fallbackName?: string) {
+/**
+ * Get file extension from content type
+ */
+function getExtensionFromType(contentType: string, fallbackName?: string): string {
   const byType: Record<string, string> = {
     "image/jpeg": "jpg",
     "image/png": "png",
@@ -40,10 +49,14 @@ function getExtensionFromType(contentType: string, fallbackName?: string) {
   return ext.toLowerCase();
 }
 
+/**
+ * Register upload routes on the Express app
+ */
 export function registerUploadRoutes(app: Express): void {
   ensureUploadsDir();
   app.use("/uploads", express.static(UPLOAD_DIR));
 
+  // Request upload URL
   app.post("/api/uploads/request-url", requireAdmin, async (req, res) => {
     try {
       const { name, size, contentType } = req.body || {};
@@ -82,6 +95,7 @@ export function registerUploadRoutes(app: Express): void {
     }
   });
 
+  // Handle file upload
   app.put(
     "/api/uploads/local/:fileName",
     requireAdmin,
@@ -108,7 +122,7 @@ export function registerUploadRoutes(app: Express): void {
           });
         }
 
-        const fileName = path.basename(req.params.fileName);
+        const fileName = path.basename(req.params.fileName as string);
         const filePath = path.join(UPLOAD_DIR, fileName);
 
         await fs.writeFile(filePath, req.body);
