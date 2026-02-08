@@ -92,62 +92,62 @@ This Child Sponsorship Platform is designed to facilitate educational support fo
 
 ```
 Child-Sponsor-Hub/
-â”œâ”€â”€ client/                      # Frontend React application
-â”‚   â”œâ”€â”€ public/                  # Static assets
-â”‚   â”œâ”€â”€ src/
-â”‚   â”‚   â”œâ”€â”€ assets/              # Images and media
-â”‚   â”‚   â”œâ”€â”€ components/          # Reusable UI components
-â”‚   â”‚   â”‚   â”œâ”€â”€ ui/              # Shadcn UI components
-â”‚   â”‚   â”‚   â”œâ”€â”€ animated-container.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ theme-provider.tsx
-â”‚   â”‚   â”‚   â””â”€â”€ ObjectUploader.tsx
-â”‚   â”‚   â”œâ”€â”€ hooks/               # Custom React hooks
-â”‚   â”‚   â”‚   â”œâ”€â”€ use-auth.tsx     # Authentication hook
-â”‚   â”‚   â”‚   â”œâ”€â”€ use-toast.ts     # Toast notifications
-â”‚   â”‚   â”‚   â””â”€â”€ use-upload.ts    # File upload hook
-â”‚   â”‚   â”œâ”€â”€ lib/                 # Utility functions
-â”‚   â”‚   â”‚   â”œâ”€â”€ protected-route.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ queryClient.ts
-â”‚   â”‚   â”‚   â””â”€â”€ utils.ts
-â”‚   â”‚   â”œâ”€â”€ pages/               # Page components
-â”‚   â”‚   â”‚   â”œâ”€â”€ landing-page.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ auth-page.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ sponsor-dashboard.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ admin-dashboard.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ profile-page.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ sponsor-child.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ child-detail.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ contact.tsx
-â”‚   â”‚   â”‚   â”œâ”€â”€ terms.tsx        # Terms of Service
-â”‚   â”‚   â”‚   â”œâ”€â”€ privacy.tsx      # Privacy Policy
-â”‚   â”‚   â”‚   â””â”€â”€ [other pages]
-â”‚   â”‚   â”œâ”€â”€ App.tsx              # Main app component
-â”‚   â”‚   â””â”€â”€ main.tsx             # Entry point
-â”‚   â””â”€â”€ index.html
-â”œâ”€â”€ server/                      # Backend Express application
-â”‚   â”œâ”€â”€ auth.ts                  # Authentication logic
-â”‚   â”œâ”€â”€ config.ts                # Environment validation
-â”‚   â”œâ”€â”€ db.ts                    # Database connection
-â”‚   â”œâ”€â”€ email.ts                 # Email service
-â”‚   â”œâ”€â”€ index.ts                 # Server entry point
-â”‚   â”œâ”€â”€ rateLimit.ts             # Rate limiting middleware
-â”‚   â”œâ”€â”€ routes.ts                # API route handlers
-â”‚   â”œâ”€â”€ seed.ts                  # Database seeding
-â”‚   â”œâ”€â”€ storage.ts               # Data access layer
-â”‚   â”œâ”€â”€ stripeClient.ts          # Stripe configuration
-â”‚   â”œâ”€â”€ webhookHandlers.ts       # Stripe webhook handlers
-â”‚   â””â”€â”€ replit_integrations/     # Replit-specific integrations
-â”‚       â””â”€â”€ object_storage/      # Cloud storage integration
-â”œâ”€â”€ shared/                      # Shared code between client/server
-â”‚   â””â”€â”€ schema.ts                # Database schema and validation
-â”œâ”€â”€ script/                      # Build and utility scripts
-â”‚   â””â”€â”€ build.ts
-â”œâ”€â”€ drizzle.config.ts            # Drizzle ORM configuration
-â”œâ”€â”€ package.json                 # Dependencies and scripts
-â”œâ”€â”€ tsconfig.json                # TypeScript configuration
-â”œâ”€â”€ tailwind.config.ts           # Tailwind CSS configuration
-â”œâ”€â”€ vite.config.ts               # Vite build configuration
-â””â”€â”€ README.md                    # This file
+   client/                      # Frontend React application
+      public/                  # Static assets
+      src/
+         assets/              # Images and media
+         components/          # Reusable UI components
+            ui/              # Shadcn UI components
+            animated-container.tsx
+            theme-provider.tsx
+            ObjectUploader.tsx
+         hooks/               # Custom React hooks
+            use-auth.tsx     # Authentication hook
+            use-toast.ts     # Toast notifications
+            use-upload.ts    # File upload hook
+         lib/                 # Utility functions
+            protected-route.tsx
+            queryClient.ts
+            utils.ts
+         pages/               # Page components
+            landing-page.tsx
+            auth-page.tsx
+            sponsor-dashboard.tsx
+            admin-dashboard.tsx
+            profile-page.tsx
+            sponsor-child.tsx
+            child-detail.tsx
+            contact.tsx
+            terms.tsx        # Terms of Service
+            privacy.tsx      # Privacy Policy
+            [other pages]
+         App.tsx              # Main app component
+         main.tsx             # Entry point
+      index.html
+   server/                      # Backend Express application
+      auth.ts                  # Authentication logic
+      config.ts                # Environment validation
+      db.ts                    # Database connection
+      email.ts                 # Email service
+      index.ts                 # Server entry point
+      rateLimit.ts             # Rate limiting middleware
+      routes.ts                # API route handlers
+      seed.ts                  # Database seeding
+      storage.ts               # Data access layer
+      stripeClient.ts          # Stripe configuration
+      webhookHandlers.ts       # Stripe webhook handlers
+      replit_integrations/     # Replit-specific integrations
+         object_storage/      # Cloud storage integration
+   shared/                      # Shared code between client/server
+      schema.ts                # Database schema and validation
+   script/                      # Build and utility scripts
+      build.ts
+   drizzle.config.ts            # Drizzle ORM configuration
+   package.json                 # Dependencies and scripts
+   tsconfig.json                # TypeScript configuration
+   tailwind.config.ts           # Tailwind CSS configuration
+   vite.config.ts               # Vite build configuration
+   README.md                    # This file
 ```
 
 ## ðŸ“¦ Prerequisites
