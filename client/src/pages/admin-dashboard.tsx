@@ -608,7 +608,7 @@ export default function AdminDashboard() {
       </StaggerContainer>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" data-testid="admin-tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="children" data-testid="admin-tab-children">Children</TabsTrigger>
           <TabsTrigger value="sponsors" data-testid="admin-tab-sponsors">Sponsors</TabsTrigger>
@@ -1032,8 +1032,8 @@ export default function AdminDashboard() {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={4}>
-                              <EmptyState icon={CreditCard} title="No payments yet" />
+                            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                              No payments yet
                             </TableCell>
                           </TableRow>
                         )}
