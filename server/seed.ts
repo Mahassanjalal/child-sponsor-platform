@@ -58,6 +58,8 @@ const sampleChildren = [
 
 export async function seedDatabase() {
   try {
+    
+    // check if db is connected
     const existingChildren = await db.select().from(children).limit(1);
     if (existingChildren.length > 0) {
       console.log("Database already seeded, skipping...");

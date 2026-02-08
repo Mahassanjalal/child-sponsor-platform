@@ -7,8 +7,8 @@ import { getStripeSecretKey } from "./stripeClient";
 import { validateEnvironment } from "./config";
 import Stripe from "stripe";
 import { processLocalStripeWebhook } from "./stripeWebhookLocal";
-import dotenv from "dotenv";
-dotenv.config();
+// import dotenv from "dotenv";
+// dotenv.config();
 
 // Validate environment variables before starting
 validateEnvironment();
@@ -134,7 +134,9 @@ async function initStripe() {
 
   await registerRoutes(httpServer, app);
   
-  await seedDatabase();
+  if (process.env.NODE_ENV === "development") {
+    await seedDatabase();
+  }
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -157,14 +159,17 @@ async function initStripe() {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  httpServer.listen(port, () => {
+    log(`serving on http://localhost:${port}`);
+  });
+  // httpServer.listen(
+  //   {
+  //     port,
+  //     host: "localhost",
+  //     reusePort: true,
+  //   },
+  //   () => {
+  //     log(`serving on port ${port}`);
+  //   },
+  // );
 })();
