@@ -172,6 +172,12 @@ Before running this application, ensure you have:
    npm install
    ```
 
+   If you hit an esbuild platform mismatch error (for example when copying `node_modules` between OSes), remove `node_modules` and reinstall on the target platform:
+   ```bash
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
 ## âš™ï¸ Configuration
 
 Create a `.env` file in the root directory with the following variables:
@@ -467,4 +473,3 @@ For support, email support@example.com or open an issue in the repository.
 ---
 
 **Made with ðŸ’™ to help children achieve their educational dreams**
-
