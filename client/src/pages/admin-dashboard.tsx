@@ -225,12 +225,12 @@ function ChildFormFields({ form, testIdPrefix = "" }: { form: UseFormReturn<Chil
 function ReportFormFields({
   form,
   testIdPrefix = "",
-  children: childrenList,
+  childrenList,
   showChildSelect = false,
 }: {
   form: UseFormReturn<ReportFormData>;
   testIdPrefix?: string;
-  children?: Child[];
+  childrenList?: Child[];
   showChildSelect?: boolean;
 }) {
   const p = testIdPrefix;
@@ -730,7 +730,7 @@ export default function AdminDashboard() {
                         </DialogHeader>
                         <Form {...reportForm}>
                           <form onSubmit={reportForm.handleSubmit((data) => createReportMutation.mutate(data))} className="space-y-4">
-                            <ReportFormFields form={reportForm} showChildSelect children={children} />
+                            <ReportFormFields form={reportForm} showChildSelect childrenList={children} />
                             <Button
                               type="submit"
                               className="w-full"
