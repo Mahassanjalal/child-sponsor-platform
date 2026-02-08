@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15
+    image: postgres:14-alpine
     environment:
       POSTGRES_DB: child_sponsorship
       POSTGRES_USER: postgres
@@ -10,20 +10,20 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
-  app:
-    build: .
-    ports:
-      - "5000:5000"
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/child_sponsorship
-    depends_on:
-      - db
-    command: sh -c "npm run db:push && npm run dev"
-    volumes:
-      - .:/app
-      - /app/node_modules
+  # app:
+  #   build: .
+  #   ports:
+  #     - "5000:5000"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@db:5432/child_sponsorship
+  #   depends_on:
+  #     - db
+  #   command: sh -c "npm run db:push && npm run dev"
+  #   volumes:
+  #     - .:/app
+  #     - /app/node_modules
 
 volumes:
   pg_data:

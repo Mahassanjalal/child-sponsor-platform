@@ -7,6 +7,8 @@ import { getStripeSecretKey } from "./stripeClient";
 import { validateEnvironment } from "./config";
 import Stripe from "stripe";
 import { processLocalStripeWebhook } from "./stripeWebhookLocal";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Validate environment variables before starting
 validateEnvironment();
