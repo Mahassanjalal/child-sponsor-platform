@@ -591,9 +591,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: parsed.error.errors[0].message });
       }
 
-      const updates: any = { ...parsed.data };
-      if (updates.dateOfBirth) {
-        updates.dateOfBirth = new Date(updates.dateOfBirth);
+      const { dateOfBirth, ...rest } = parsed.data;
+      const updates: Record<string, unknown> = { ...rest };
+      if (dateOfBirth) {
+        updates.dateOfBirth = new Date(dateOfBirth);
       }
 
       const child = await storage.updateChild(id, updates);
