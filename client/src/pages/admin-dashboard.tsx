@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,11 +38,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  StaggerContainer,
-} from "@/components/animated-container";
-import { DashboardCardSkeleton, TableRowSkeleton } from "@/components/loading-skeleton";
-import { DashboardLayout, StatCard, EmptyState, ConfirmDialog } from "@/components/dashboard";
+import { TableRowSkeleton } from "@/components/loading-skeleton";
+import { 
+  DashboardStatCard, 
+  DashboardEmptyState, 
+  ConfirmDialog 
+} from "@/components/dashboard";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -54,6 +56,8 @@ import {
   Trash2,
   TrendingUp,
   Loader2,
+  Baby,
+  BarChart3,
 } from "lucide-react";
 import type { Child, User, Report, Sponsorship, Payment } from "@shared/schema";
 import { format } from "date-fns";
@@ -557,63 +561,71 @@ export default function AdminDashboard() {
   const sponsoredChildren = children?.filter(c => c.isSponsored).length || 0;
   const totalSponsors = sponsors?.length || 0;
   const totalReports = reports?.length || 0;
+  const totalRevenue = payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0;
 
   return (
-    <DashboardLayout
-      title="Admin Dashboard"
-      subtitle="Manage children, sponsors, reports, and sponsorships"
-      badge="Admin"
-      logoutTestId="button-admin-logout"
-    >
-      <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="space-y-8">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {loadingChildren || loadingSponsors ? (
           <>
-            <DashboardCardSkeleton />
-            <DashboardCardSkeleton />
-            <DashboardCardSkeleton />
-            <DashboardCardSkeleton />
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
+            ))}
           </>
         ) : (
           <>
-            <StatCard
+            <DashboardStatCard
               title="Total Children"
               value={totalChildren}
               subtitle={`${sponsoredChildren} sponsored`}
-              icon={Users}
-              iconClassName="text-primary"
+              icon={Baby}
             />
-            <StatCard
+            <DashboardStatCard
               title="Active Sponsors"
               value={totalSponsors}
               subtitle="Registered sponsors"
-              icon={Heart}
-              iconClassName="text-accent"
+              icon={Users}
             />
-            <StatCard
+            <DashboardStatCard
               title="Total Reports"
               value={totalReports}
               subtitle="Published reports"
               icon={FileText}
-              iconClassName="text-chart-3"
             />
-            <StatCard
+            <DashboardStatCard
               title="Sponsorship Rate"
               value={`${totalChildren > 0 ? Math.round((sponsoredChildren / totalChildren) * 100) : 0}%`}
-              subtitle="Children sponsored"
-              icon={TrendingUp}
-              iconClassName="text-chart-2"
+              subtitle={`$${totalRevenue.toFixed(0)} total revenue`}
+              icon={BarChart3}
+              trend={{ value: 8, label: "vs last month" }}
             />
           </>
         )}
-      </StaggerContainer>
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="overview" data-testid="admin-tab-overview">Overview</TabsTrigger>
-          <TabsTrigger value="children" data-testid="admin-tab-children">Children</TabsTrigger>
-          <TabsTrigger value="sponsors" data-testid="admin-tab-sponsors">Sponsors</TabsTrigger>
-          <TabsTrigger value="reports" data-testid="admin-tab-reports">Reports</TabsTrigger>
-          <TabsTrigger value="payments" data-testid="admin-tab-payments">Payments</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background gap-2" data-testid="admin-tab-overview">
+            <BarChart3 className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="children" className="data-[state=active]:bg-background gap-2" data-testid="admin-tab-children">
+            <Baby className="w-4 h-4" />
+            Children
+          </TabsTrigger>
+          <TabsTrigger value="sponsors" className="data-[state=active]:bg-background gap-2" data-testid="admin-tab-sponsors">
+            <Users className="w-4 h-4" />
+            Sponsors
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="data-[state=active]:bg-background gap-2" data-testid="admin-tab-reports">
+            <FileText className="w-4 h-4" />
+            Reports
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="data-[state=active]:bg-background gap-2" data-testid="admin-tab-payments">
+            <CreditCard className="w-4 h-4" />
+            Payments
+          </TabsTrigger>
         </TabsList>
 
         <AnimatePresence mode="wait">
@@ -649,7 +661,7 @@ export default function AdminDashboard() {
                         {sponsorships.slice(0, 5).map((sp) => (
                           <motion.div
                             key={sp.id}
-                            className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                             whileHover={{ x: 4 }}
                           >
                             <Avatar>
@@ -666,7 +678,7 @@ export default function AdminDashboard() {
                         ))}
                       </div>
                     ) : (
-                      <EmptyState icon={Users} title="No sponsorships yet" />
+                      <DashboardEmptyState icon={Users} title="No sponsorships yet" description="Sponsorships will appear here when sponsors support children." />
                     )}
                   </CardContent>
                 </Card>
@@ -1134,6 +1146,6 @@ export default function AdminDashboard() {
           </Form>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </div>
   );
 }

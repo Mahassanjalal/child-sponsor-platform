@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageTransition, AnimatedContainer } from "@/components/animated-container";
-import { Heart, LogOut } from "lucide-react";
+import { Heart, LogOut, FileText, LayoutDashboard } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -25,36 +25,66 @@ export function DashboardLayout({
   logoutTestId = "button-logout",
 }: DashboardLayoutProps) {
   const { user, logoutMutation } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   const handleLogout = () => {
     logoutMutation.mutate();
     setLocation("/");
   };
 
+  const isAdmin = user?.role === "admin";
+
   return (
     <PageTransition>
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/50">
           <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-            <Link href="/">
-              <motion.div
-                className="flex items-center gap-2 cursor-pointer"
-                whileHover={{ scale: 1.02 }}
-              >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  HopeConnect
-                </span>
-                {badge && (
-                  <Badge variant="secondary" className="ml-2">
-                    {badge}
-                  </Badge>
-                )}
-              </motion.div>
-            </Link>
+            <div className="flex items-center gap-6">
+              <Link href="/">
+                <motion.div
+                  className="flex items-center gap-2 cursor-pointer"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                    <Heart className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    HopeConnect
+                  </span>
+                  {badge && (
+                    <Badge variant="secondary" className="ml-2">
+                      {badge}
+                    </Badge>
+                  )}
+                </motion.div>
+              </Link>
+
+              {/* Navigation Links */}
+              {!isAdmin && (
+                <nav className="hidden md:flex items-center gap-1">
+                  <Link href="/dashboard">
+                    <Button
+                      variant={location === "/dashboard" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/reports">
+                    <Button
+                      variant={location === "/reports" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Reports
+                    </Button>
+                  </Link>
+                </nav>
+              )}
+            </div>
 
             <div className="flex items-center gap-3">
               <ThemeToggle />

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PageTransition, AnimatedContainer } from "@/components/animated-container";
+import { AnimatedContainer } from "@/components/animated-container";
 import {
   Heart,
   CheckCircle2,
@@ -54,10 +54,9 @@ export default function SponsorSuccess() {
   }, []);
 
   return (
-    <PageTransition>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
-        <AnimatedContainer>
-          <Card className="w-full max-w-md border-border/50 overflow-hidden">
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <AnimatedContainer>
+        <Card className="w-full max-w-md border-border/50 overflow-hidden">
             {status === "loading" && (
               <CardContent className="p-8 text-center">
                 <motion.div
@@ -162,6 +161,5 @@ export default function SponsorSuccess() {
           </Card>
         </AnimatedContainer>
       </div>
-    </PageTransition>
   );
 }

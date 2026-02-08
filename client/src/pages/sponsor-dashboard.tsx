@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -11,26 +12,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  StaggerContainer,
   HoverScale,
 } from "@/components/animated-container";
-import {
-  DashboardCardSkeleton,
-  ChildCardSkeleton,
-  ReportCardSkeleton,
-  PaymentHistorySkeleton,
-} from "@/components/loading-skeleton";
 import { Input } from "@/components/ui/input";
 import {
-  DashboardLayout,
-  StatCard,
-  EmptyState,
+  DashboardStatCard,
+  QuickActionCard,
+  DashboardEmptyState,
   ConfirmDialog,
   ChildCard,
 } from "@/components/dashboard";
+import { ProfessionalReportCard } from "@/components/report-viewer";
 import {
   Heart,
-  Users,
   FileText,
   CreditCard,
   TrendingUp,
@@ -40,13 +34,26 @@ import {
   Plus,
   Download,
   Search,
+  ArrowRight,
+  Calendar,
+  MapPin,
+  Eye,
+  Baby,
+  Gift,
+  Star,
+  ChevronRight,
 } from "lucide-react";
-import type { Child, Report, Payment, Sponsorship } from "@shared/schema";
+import type { Child, Report, Payment, Sponsorship, User as UserType } from "@shared/schema";
 import { format } from "date-fns";
 
 interface SponsorshipWithDetails extends Sponsorship {
   child: Child;
   payments: Payment[];
+}
+
+interface ReportWithDetails extends Report {
+  child?: Child;
+  sponsor?: Omit<UserType, 'password'>;
 }
 
 export default function SponsorDashboard() {
@@ -61,8 +68,8 @@ export default function SponsorDashboard() {
     queryKey: ["/api/sponsorships/my"],
   });
 
-  const { data: reports, isLoading: loadingReports } = useQuery<Report[]>({
-    queryKey: ["/api/reports/my"],
+  const { data: reports, isLoading: loadingReports } = useQuery<ReportWithDetails[]>({
+    queryKey: ["/api/reports/my/detailed"],
   });
 
   const { data: payments, isLoading: loadingPayments } = useQuery<Payment[]>({
@@ -102,8 +109,10 @@ export default function SponsorDashboard() {
   };
 
   const totalDonated = payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0;
-  const totalChildren = sponsorships?.length || 0;
+  const activeSponsorsships = sponsorships?.filter(s => s.status === "active") || [];
+  const totalChildren = activeSponsorsships.length;
   const totalReports = reports?.length || 0;
+  const impactScore = Math.min(100, totalChildren * 20 + totalDonated / 10);
 
   const filteredChildren = availableChildren?.filter((child) =>
     searchQuery === "" ||
@@ -112,65 +121,122 @@ export default function SponsorDashboard() {
     child.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleExportPayments = () => {
+    if (!payments || payments.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No payment history to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const headers = ["Date", "Amount", "Status"];
+    const rows = payments.map((p) => [
+      format(new Date(p.paymentDate), "yyyy-MM-dd"),
+      `$${p.amount}`,
+      p.status,
+    ]);
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `payment-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({
+      title: "Export Complete",
+      description: "Your payment history has been downloaded.",
+    });
+  };
+
   return (
-    <DashboardLayout
-      title={`Welcome back, ${user?.firstName}!`}
-      subtitle="Here's an overview of your sponsorship impact"
-      logoutTestId="button-logout"
-    >
-      <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <div className="mb-2">
+        <h2 className="text-2xl font-bold">Welcome back, {user?.firstName}!</h2>
+        <p className="text-muted-foreground">Here's an overview of your sponsorship impact</p>
+      </div>
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {loadingSponsorships ? (
           <>
-            <DashboardCardSkeleton />
-            <DashboardCardSkeleton />
-            <DashboardCardSkeleton />
-            <DashboardCardSkeleton />
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
+            ))}
           </>
         ) : (
           <>
-            <StatCard
+            <DashboardStatCard
               title="Children Sponsored"
               value={totalChildren}
               subtitle="Active sponsorships"
-              icon={Users}
-              iconClassName="text-primary"
+              icon={Baby}
             />
-            <StatCard
+            <DashboardStatCard
               title="Total Donated"
-              value={`$${totalDonated.toFixed(2)}`}
+              value={`$${totalDonated.toFixed(0)}`}
               subtitle="Lifetime contribution"
               icon={DollarSign}
-              iconClassName="text-accent"
+              trend={{ value: 12, label: "vs last month" }}
             />
-            <StatCard
+            <DashboardStatCard
               title="Reports Received"
               value={totalReports}
               subtitle="Progress updates"
               icon={FileText}
-              iconClassName="text-chart-3"
             />
-            <StatCard
+            <DashboardStatCard
               title="Impact Score"
-              value={
-                <span className="flex items-center gap-1">
-                  <Sparkles className="w-5 h-5 text-chart-4" />
-                  {Math.min(100, totalChildren * 20 + totalDonated / 10)}
-                </span>
-              }
+              value={impactScore.toFixed(0)}
               subtitle="Making a difference"
-              icon={TrendingUp}
-              iconClassName="text-chart-2"
+              icon={Star}
             />
           </>
         )}
-      </StaggerContainer>
+      </div>
 
+      {/* Quick Actions */}
+      {totalChildren === 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <QuickActionCard
+            title="Sponsor a Child"
+            description="Make a difference in a child's life today"
+            icon={Heart}
+            href="/dashboard?tab=children"
+            color="primary"
+          />
+          <QuickActionCard
+            title="Learn More"
+            description="Discover how your support helps children"
+            icon={Gift}
+            href="/contact"
+            color="accent"
+          />
+        </div>
+      )}
+
+      {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-          <TabsTrigger value="children" data-testid="tab-children">My Children</TabsTrigger>
-          <TabsTrigger value="reports" data-testid="tab-reports">Reports</TabsTrigger>
-          <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background gap-2" data-testid="tab-overview">
+            <TrendingUp className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="children" className="data-[state=active]:bg-background gap-2" data-testid="tab-children">
+            <Baby className="w-4 h-4" />
+            Sponsor a Child
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="data-[state=active]:bg-background gap-2" data-testid="tab-reports">
+            <FileText className="w-4 h-4" />
+            Reports
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="data-[state=active]:bg-background gap-2" data-testid="tab-payments">
+            <CreditCard className="w-4 h-4" />
+            Payments
+          </TabsTrigger>
         </TabsList>
 
         <AnimatePresence mode="wait">
@@ -181,68 +247,83 @@ export default function SponsorDashboard() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            <TabsContent value="overview" className="space-y-6">
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6 mt-0">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Sponsored Children</CardTitle>
-                    <CardDescription>Children you are currently supporting</CardDescription>
+                {/* Sponsored Children */}
+                <Card className="lg:col-span-2 border-border/50">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                    <div>
+                      <CardTitle className="text-lg font-semibold">My Sponsored Children</CardTitle>
+                      <CardDescription>Children you are currently supporting</CardDescription>
+                    </div>
+                    {activeSponsorsships.length > 0 && (
+                      <Badge variant="secondary">{activeSponsorsships.length} Active</Badge>
+                    )}
                   </CardHeader>
                   <CardContent>
                     {loadingSponsorships ? (
                       <div className="space-y-4">
                         {[1, 2].map((i) => (
-                          <div key={i} className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
-                            <ChildCardSkeleton />
-                          </div>
+                          <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
                         ))}
                       </div>
-                    ) : sponsorships && sponsorships.length > 0 ? (
-                      <div className="space-y-4">
-                        {sponsorships.filter(s => s.status === "active").map((sponsorship) => (
+                    ) : activeSponsorsships.length > 0 ? (
+                      <div className="space-y-3">
+                        {activeSponsorsships.slice(0, 3).map((sponsorship) => (
                           <motion.div
                             key={sponsorship.id}
-                            className="flex items-center gap-4 p-4 rounded-lg border bg-card hover-elevate"
                             whileHover={{ x: 4 }}
+                            className="group"
                           >
-                            <Avatar className="h-14 w-14">
-                              <AvatarImage src={sponsorship.child.photoUrl || undefined} />
-                              <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                                {sponsorship.child.firstName[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <h4 className="font-semibold">{sponsorship.child.firstName} {sponsorship.child.lastName}</h4>
-                              <p className="text-sm text-muted-foreground">{sponsorship.child.location}</p>
-                            </div>
-                            <div className="text-right mr-2">
-                              <Badge variant="secondary">${sponsorship.monthlyAmount}/mo</Badge>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Since {format(new Date(sponsorship.startDate), "MMM yyyy")}
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCancelSponsorship(sponsorship);
-                              }}
-                              data-testid={`button-cancel-sponsorship-${sponsorship.id}`}
-                            >
-                              Cancel
-                            </Button>
+                            <Link href={`/child/${sponsorship.childId}`}>
+                              <div className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-muted/50 transition-all cursor-pointer">
+                                <Avatar className="h-14 w-14 ring-2 ring-primary/20">
+                                  <AvatarImage src={sponsorship.child.photoUrl || undefined} />
+                                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-primary text-lg font-medium">
+                                    {sponsorship.child.firstName[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold truncate">
+                                    {sponsorship.child.firstName} {sponsorship.child.lastName}
+                                  </h4>
+                                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3.5 h-3.5" />
+                                      {sponsorship.child.location}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3.5 h-3.5" />
+                                      Since {format(new Date(sponsorship.startDate), "MMM yyyy")}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
+                                    ${sponsorship.monthlyAmount}/mo
+                                  </Badge>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            </Link>
                           </motion.div>
                         ))}
+                        {activeSponsorsships.length > 3 && (
+                          <Button variant="ghost" className="w-full" onClick={() => setActiveTab("children")}>
+                            View all {activeSponsorsships.length} children
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        )}
                       </div>
                     ) : (
-                      <EmptyState
-                        icon={Users}
-                        title="You haven't sponsored any children yet"
+                      <DashboardEmptyState
+                        icon={Heart}
+                        title="Start Your Sponsorship Journey"
+                        description="Make a lasting impact on a child's life by becoming a sponsor today."
                         action={
-                          <Button onClick={() => setActiveTab("children")} data-testid="button-sponsor-first-child">
-                            <Plus className="w-4 h-4 mr-2" />
+                          <Button onClick={() => setActiveTab("children")} className="gap-2" data-testid="button-sponsor-first-child">
+                            <Plus className="w-4 h-4" />
                             Sponsor Your First Child
                           </Button>
                         }
@@ -251,38 +332,40 @@ export default function SponsorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Latest updates</CardDescription>
+                {/* Activity Feed */}
+                <Card className="border-border/50">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
+                    <CardDescription>Latest updates and transactions</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-[300px]">
+                    <ScrollArea className="h-[320px] pr-4">
                       {loadingReports || loadingPayments ? (
-                        <div className="space-y-3">
-                          {[1, 2, 3].map((i) => (
-                            <div key={i} className="flex items-center gap-3 p-2">
-                              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
-                              <div className="flex-1 space-y-1">
-                                <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-                                <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+                        <div className="space-y-4">
+                          {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="flex gap-3">
+                              <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
+                                <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           {reports?.slice(0, 3).map((report) => (
                             <motion.div
-                              key={report.id}
-                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                              whileHover={{ x: 2 }}
+                              key={`report-${report.id}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                             >
-                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                <FileText className="w-4 h-4 text-primary" />
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <FileText className="w-5 h-5 text-primary" />
                               </div>
-                              <div>
-                                <p className="text-sm font-medium">{report.title}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{report.title}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {format(new Date(report.reportDate), "MMM d, yyyy")}
                                 </p>
@@ -291,25 +374,29 @@ export default function SponsorDashboard() {
                           ))}
                           {payments?.slice(0, 3).map((payment) => (
                             <motion.div
-                              key={payment.id}
-                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                              whileHover={{ x: 2 }}
+                              key={`payment-${payment.id}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
                             >
-                              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-                                <CreditCard className="w-4 h-4 text-accent" />
+                              <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                                <DollarSign className="w-5 h-5 text-green-600" />
                               </div>
-                              <div>
+                              <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium">Payment of ${payment.amount}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {format(new Date(payment.paymentDate), "MMM d, yyyy")}
                                 </p>
                               </div>
+                              <Badge variant="outline" className="text-green-600 shrink-0">
+                                {payment.status}
+                              </Badge>
                             </motion.div>
                           ))}
                           {(!reports || reports.length === 0) && (!payments || payments.length === 0) && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                              <p className="text-sm">No recent activity</p>
+                            <div className="text-center py-8">
+                              <Clock className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                              <p className="text-sm text-muted-foreground">No recent activity</p>
                             </div>
                           )}
                         </div>
@@ -318,14 +405,45 @@ export default function SponsorDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Impact Summary */}
+              {totalChildren > 0 && (
+                <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-accent/5">
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                      <div className="flex-1 text-center md:text-left">
+                        <h3 className="text-xl font-semibold mb-2">Your Impact Journey</h3>
+                        <p className="text-muted-foreground">
+                          You're making a real difference! Your support helps provide education, healthcare, and hope to children in need.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-primary">{totalChildren}</div>
+                          <div className="text-xs text-muted-foreground">Children Helped</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-accent">${totalDonated.toFixed(0)}</div>
+                          <div className="text-xs text-muted-foreground">Total Donated</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-green-600">{totalReports}</div>
+                          <div className="text-xs text-muted-foreground">Updates Received</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
-            <TabsContent value="children" className="space-y-6">
-              <Card>
+            {/* Children Tab */}
+            <TabsContent value="children" className="space-y-6 mt-0">
+              <Card className="border-border/50">
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                      <CardTitle>Available Children to Sponsor</CardTitle>
+                      <CardTitle>Children Waiting for Sponsors</CardTitle>
                       <CardDescription>Choose a child to support their education, healthcare, and well-being</CardDescription>
                     </div>
                     <div className="relative">
@@ -342,152 +460,125 @@ export default function SponsorDashboard() {
                 </CardHeader>
                 <CardContent>
                   {loadingChildren ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {[1, 2, 3].map((i) => (
-                        <ChildCardSkeleton key={i} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="h-72 rounded-xl bg-muted animate-pulse" />
                       ))}
                     </div>
                   ) : filteredChildren && filteredChildren.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {filteredChildren.map((child) => (
                         <ChildCard key={child.id} child={child} linkPrefix="/sponsor/child" actionLabel="Sponsor" />
                       ))}
                     </div>
                   ) : searchQuery ? (
-                    <EmptyState
+                    <DashboardEmptyState
                       icon={Search}
                       title={`No children found matching "${searchQuery}"`}
                       description="Try a different search term or clear the filter."
+                      action={
+                        <Button variant="outline" onClick={() => setSearchQuery("")}>
+                          Clear Search
+                        </Button>
+                      }
                     />
                   ) : (
-                    <EmptyState
-                      icon={Heart}
-                      title="All children are currently sponsored!"
-                      description="Check back soon for new children in need."
+                    <DashboardEmptyState
+                      icon={Sparkles}
+                      title="All Children are Currently Sponsored!"
+                      description="Thanks to generous sponsors like you, all children have found support. Check back soon for new children in need."
                     />
                   )}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="reports" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Progress Reports</CardTitle>
-                  <CardDescription>Monthly updates on your sponsored children</CardDescription>
+            {/* Reports Tab */}
+            <TabsContent value="reports" className="space-y-6 mt-0">
+              <Card className="border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle>Progress Reports</CardTitle>
+                    <CardDescription>Monthly updates on your sponsored children - View full details and download PDF</CardDescription>
+                  </div>
+                  {reports && reports.length > 0 && (
+                    <Link href="/reports">
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Eye className="w-4 h-4" />
+                        View All
+                      </Button>
+                    </Link>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {loadingReports ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {[1, 2, 3, 4].map((i) => (
-                        <ReportCardSkeleton key={i} />
+                        <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />
                       ))}
                     </div>
                   ) : reports && reports.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {reports.map((report) => (
+                      {reports.slice(0, 4).map((report) => (
                         <HoverScale key={report.id}>
-                          <Card>
-                            <CardHeader>
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <CardTitle className="text-lg">{report.title}</CardTitle>
-                                  <CardDescription>
-                                    {format(new Date(report.reportDate), "MMMM d, yyyy")}
-                                  </CardDescription>
-                                </div>
-                                <Badge variant="secondary">
-                                  <FileText className="w-3 h-3 mr-1" />
-                                  Report
-                                </Badge>
-                              </div>
-                            </CardHeader>
-                            <CardContent>
-                              {report.photoUrl && (
-                                <div className="aspect-video rounded-lg overflow-hidden mb-4 bg-muted">
-                                  <img
-                                    src={report.photoUrl}
-                                    alt="Report"
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              )}
-                              <p className="text-sm text-muted-foreground line-clamp-4">{report.content}</p>
-                            </CardContent>
-                          </Card>
+                          <ProfessionalReportCard
+                            report={report}
+                            child={report.child}
+                            sponsor={report.sponsor}
+                          />
                         </HoverScale>
                       ))}
                     </div>
                   ) : (
-                    <EmptyState
+                    <DashboardEmptyState
                       icon={FileText}
-                      title="No reports yet"
-                      description="Reports will appear here once you sponsor a child"
+                      title="No Reports Yet"
+                      description="Reports will appear here once you sponsor a child. You'll receive monthly progress updates with photos and detailed information."
+                      action={
+                        <Button onClick={() => setActiveTab("children")} className="gap-2">
+                          <Heart className="w-4 h-4" />
+                          Sponsor a Child
+                        </Button>
+                      }
                     />
                   )}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="payments" className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-2">
+            {/* Payments Tab */}
+            <TabsContent value="payments" className="space-y-6 mt-0">
+              <Card className="border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <div>
                     <CardTitle>Payment History</CardTitle>
                     <CardDescription>Your contribution history and invoices</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (!payments || payments.length === 0) {
-                        toast({
-                          title: "No Data",
-                          description: "No payment history to export.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      const headers = ["Date", "Amount", "Status"];
-                      const rows = payments.map((p) => [
-                        format(new Date(p.paymentDate), "yyyy-MM-dd"),
-                        `$${p.amount}`,
-                        p.status,
-                      ]);
-                      const csvContent = [headers, ...rows]
-                        .map((row) => row.map((cell) => `"${cell}"`).join(","))
-                        .join("\n");
-                      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-                      const url = URL.createObjectURL(blob);
-                      const link = document.createElement("a");
-                      link.href = url;
-                      link.download = `payment-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
-                      link.click();
-                      URL.revokeObjectURL(url);
-                      toast({
-                        title: "Export Complete",
-                        description: "Your payment history has been downloaded.",
-                      });
-                    }}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
+                  <Button variant="outline" size="sm" onClick={handleExportPayments} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Export CSV
                   </Button>
                 </CardHeader>
                 <CardContent>
                   {loadingPayments ? (
-                    <PaymentHistorySkeleton />
+                    <div className="space-y-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
+                      ))}
+                    </div>
                   ) : payments && payments.length > 0 ? (
                     <div className="space-y-3">
-                      {payments.map((payment) => (
+                      {payments.map((payment, index) => (
                         <motion.div
                           key={payment.id}
-                          className="flex items-center justify-between p-4 rounded-lg border bg-card"
-                          whileHover={{ x: 4 }}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                              <CreditCard className="w-5 h-5 text-accent" />
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                              <CreditCard className="w-6 h-6 text-green-600" />
                             </div>
                             <div>
                               <p className="font-medium">Monthly Sponsorship</p>
@@ -496,11 +587,13 @@ export default function SponsorDashboard() {
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-lg">${payment.amount}</p>
+                          <div className="text-right flex items-center gap-4">
+                            <div>
+                              <p className="font-semibold text-lg">${payment.amount}</p>
+                            </div>
                             <Badge
                               variant={payment.status === "completed" ? "default" : "secondary"}
-                              className={payment.status === "completed" ? "bg-accent" : ""}
+                              className={payment.status === "completed" ? "bg-green-500 hover:bg-green-600" : ""}
                             >
                               {payment.status}
                             </Badge>
@@ -509,10 +602,10 @@ export default function SponsorDashboard() {
                       ))}
                     </div>
                   ) : (
-                    <EmptyState
+                    <DashboardEmptyState
                       icon={CreditCard}
-                      title="No payments yet"
-                      description="Your payment history will appear here"
+                      title="No Payment History"
+                      description="Your payment history will appear here once you start sponsoring a child."
                     />
                   )}
                 </CardContent>
@@ -536,6 +629,6 @@ export default function SponsorDashboard() {
         cancelTestId="button-cancel-dialog-close"
         confirmTestId="button-confirm-cancel"
       />
-    </DashboardLayout>
+    </div>
   );
 }

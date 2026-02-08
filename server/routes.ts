@@ -158,6 +158,70 @@ export async function registerRoutes(
     }
   });
 
+  // Get detailed reports with child and sponsor information
+  app.get("/api/reports/my/detailed", requireAuth, async (req, res) => {
+    try {
+      const reports = await storage.getReportsBySponsorId(req.user!.id);
+      const sponsorships = await storage.getSponsorshipsBySponserId(req.user!.id);
+      
+      // Get sponsor info (without password)
+      const { password, ...sponsorWithoutPassword } = req.user!;
+      
+      // Build detailed reports with child info
+      const detailedReports = await Promise.all(
+        reports.map(async (report) => {
+          const child = await storage.getChild(report.childId);
+          return {
+            ...report,
+            child,
+            sponsor: sponsorWithoutPassword,
+          };
+        })
+      );
+      
+      res.json(detailedReports);
+    } catch (error) {
+      res.status(500).send("Failed to fetch detailed reports");
+    }
+  });
+
+  // Get single detailed report by ID
+  app.get("/api/reports/:reportId/detailed", requireAuth, async (req, res) => {
+    try {
+      const reportId = parseInt(req.params.reportId as string);
+      if (isNaN(reportId)) {
+        return res.status(400).send("Invalid report ID");
+      }
+      
+      const allReports = await storage.getReports();
+      const report = allReports.find(r => r.id === reportId);
+      
+      if (!report) {
+        return res.status(404).send("Report not found");
+      }
+      
+      // Verify access - user must sponsor this child or be admin
+      if (req.user!.role !== "admin") {
+        const userSponsorships = await storage.getSponsorshipsBySponserId(req.user!.id);
+        const sponsorsChild = userSponsorships.some(s => s.childId === report.childId && s.status === "active");
+        if (!sponsorsChild) {
+          return res.status(403).send("You can only view reports for children you sponsor");
+        }
+      }
+      
+      const child = await storage.getChild(report.childId);
+      const { password, ...sponsorWithoutPassword } = req.user!;
+      
+      res.json({
+        ...report,
+        child,
+        sponsor: sponsorWithoutPassword,
+      });
+    } catch (error) {
+      res.status(500).send("Failed to fetch report details");
+    }
+  });
+
   app.get("/api/reports/child/:childId", requireAuth, async (req, res) => {
     try {
       const childId = parseInt(req.params.childId);
@@ -292,6 +356,142 @@ export async function registerRoutes(
       res.json({ publishableKey });
     } catch (error) {
       res.status(500).send("Failed to get Stripe key");
+    }
+  });
+
+  // Get customer's payment methods
+  app.get("/api/stripe/payment-methods", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.user!.stripeCustomerId;
+      
+      if (!customerId) {
+        return res.json({ paymentMethods: [], defaultPaymentMethodId: null });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      
+      // Get payment methods
+      const paymentMethods = await stripe.paymentMethods.list({
+        customer: customerId,
+        type: 'card',
+      });
+
+      // Get customer to find default payment method
+      const customer = await stripe.customers.retrieve(customerId);
+      const defaultPaymentMethodId = 
+        typeof customer !== 'string' && !customer.deleted 
+          ? (customer.invoice_settings?.default_payment_method as string | null)
+          : null;
+
+      res.json({
+        paymentMethods: paymentMethods.data.map(pm => ({
+          id: pm.id,
+          brand: pm.card?.brand,
+          last4: pm.card?.last4,
+          expMonth: pm.card?.exp_month,
+          expYear: pm.card?.exp_year,
+          isDefault: pm.id === defaultPaymentMethodId,
+        })),
+        defaultPaymentMethodId,
+      });
+    } catch (error) {
+      console.error("Get payment methods error:", error);
+      res.status(500).send("Failed to get payment methods");
+    }
+  });
+
+  // Create Stripe Billing Portal session for managing payment methods
+  app.post("/api/stripe/billing-portal", requireAuth, async (req, res) => {
+    try {
+      const stripe = await getUncachableStripeClient();
+      let customerId = req.user!.stripeCustomerId;
+
+      // Create customer if doesn't exist
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: req.user!.email,
+          name: `${req.user!.firstName} ${req.user!.lastName}`,
+          metadata: { userId: req.user!.id.toString() },
+        });
+        await storage.updateUserStripeInfo(req.user!.id, customer.id);
+        customerId = customer.id;
+      }
+
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || "5000"}`;
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${baseUrl}/profile`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Billing portal error:", error);
+      res.status(500).send("Failed to create billing portal session");
+    }
+  });
+
+  // Set default payment method
+  app.post("/api/stripe/set-default-payment-method", requireAuth, async (req, res) => {
+    try {
+      const { paymentMethodId } = req.body;
+      
+      if (!paymentMethodId) {
+        return res.status(400).send("Payment method ID is required");
+      }
+
+      const customerId = req.user!.stripeCustomerId;
+      if (!customerId) {
+        return res.status(400).send("No Stripe customer found");
+      }
+
+      const stripe = await getUncachableStripeClient();
+
+      // Verify the payment method belongs to this customer
+      const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+      if (paymentMethod.customer !== customerId) {
+        return res.status(403).send("Payment method does not belong to this customer");
+      }
+
+      // Update customer's default payment method
+      await stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Set default payment method error:", error);
+      res.status(500).send("Failed to set default payment method");
+    }
+  });
+
+  // Delete payment method
+  app.delete("/api/stripe/payment-methods/:paymentMethodId", requireAuth, async (req, res) => {
+    try {
+      const paymentMethodId = req.params.paymentMethodId as string;
+      
+      const customerId = req.user!.stripeCustomerId;
+      if (!customerId) {
+        return res.status(400).send("No Stripe customer found");
+      }
+
+      const stripe = await getUncachableStripeClient();
+
+      // Verify the payment method belongs to this customer
+      const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+      if (paymentMethod.customer !== customerId) {
+        return res.status(403).send("Payment method does not belong to this customer");
+      }
+
+      // Detach the payment method
+      await stripe.paymentMethods.detach(paymentMethodId);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete payment method error:", error);
+      res.status(500).send("Failed to delete payment method");
     }
   });
 
