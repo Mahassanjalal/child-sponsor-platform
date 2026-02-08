@@ -5,7 +5,6 @@ import fs from "fs/promises";
 import fssync from "fs";
 import { randomUUID } from "crypto";
 import { requireAdmin } from "./auth";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",
@@ -25,10 +24,6 @@ function ensureUploadsDir() {
   }
 }
 
-function getUploadMode(): "local" | "replit" {
-  return process.env.UPLOAD_MODE === "local" ? "local" : "replit";
-}
-
 function getExtensionFromType(contentType: string, fallbackName?: string) {
   const byType: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -46,11 +41,6 @@ function getExtensionFromType(contentType: string, fallbackName?: string) {
 }
 
 export function registerUploadRoutes(app: Express): void {
-  if (getUploadMode() !== "local") {
-    registerObjectStorageRoutes(app);
-    return;
-  }
-
   ensureUploadsDir();
   app.use("/uploads", express.static(UPLOAD_DIR));
 
