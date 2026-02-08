@@ -461,7 +461,7 @@ export async function registerRoutes(
         stripeSubscriptionId: session.subscription?.toString() || null,
       });
 
-      await storage.updateChildSponsoredStatus(parseInt(childId), true);
+      await storage.updateChildSponsoredStatus(childId, true);
 
       await storage.createPayment({
         sponsorshipId: sponsorship.id,
@@ -470,6 +470,15 @@ export async function registerRoutes(
         stripePaymentId: session.payment_intent?.toString() || session.id,
       });
 
+      // Send sponsorship confirmation email
+      sendSponsorshipConfirmationEmail(
+        req.user!.email,
+        req.user!.firstName,
+        `${child.firstName} ${child.lastName}`,
+        child.monthlyAmount,
+        sessionPaymentType
+      ).catch(err => console.error('Failed to send sponsorship confirmation email:', err));
+
       res.json({ sponsorship });
     } catch (error) {
       console.error("Confirm sponsorship error:", error);
@@ -477,9 +486,19 @@ export async function registerRoutes(
     }
   });
 
+  const createSponsorshipSchema = z.object({
+    childId: z.number().int().positive("Invalid child ID"),
+    monthlyAmount: z.string().regex(/^\d+\.\d{2}$/, "Amount must be in format like '35.00'").optional(),
+  });
+
   app.post("/api/sponsorships", requireAuth, async (req, res) => {
     try {
-      const { childId, monthlyAmount } = req.body;
+      const parsed = createSponsorshipSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
+      }
+
+      const { childId, monthlyAmount } = parsed.data;
       
       const child = await storage.getChild(childId);
       if (!child) {
@@ -519,13 +538,28 @@ export async function registerRoutes(
     }
   });
 
+  const adminChildSchema = z.object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    dateOfBirth: z.string().min(1, "Date of birth is required"),
+    gender: z.string().min(1, "Gender is required"),
+    location: z.string().min(1, "Location is required"),
+    story: z.string().min(1, "Story is required"),
+    needs: z.string().min(1, "Needs description is required"),
+    photoUrl: z.string().nullable().optional(),
+    monthlyAmount: z.string().regex(/^\d+\.\d{2}$/, "Amount must be in format like '35.00'").optional(),
+  });
+
+  const adminChildUpdateSchema = adminChildSchema.partial();
+
   app.post("/api/admin/children", requireAdmin, async (req, res) => {
     try {
-      const { firstName, lastName, dateOfBirth, gender, location, story, needs, photoUrl, monthlyAmount } = req.body;
-      
-      if (!firstName || !lastName || !dateOfBirth || !gender || !location || !story || !needs) {
-        return res.status(400).send("All required fields must be provided");
+      const parsed = adminChildSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
       }
+
+      const { firstName, lastName, dateOfBirth, gender, location, story, needs, photoUrl, monthlyAmount } = parsed.data;
 
       const child = await storage.createChild({
         firstName,
@@ -548,7 +582,21 @@ export async function registerRoutes(
   app.put("/api/admin/children/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const child = await storage.updateChild(id, req.body);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid child ID" });
+      }
+
+      const parsed = adminChildUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
+      }
+
+      const updates: any = { ...parsed.data };
+      if (updates.dateOfBirth) {
+        updates.dateOfBirth = new Date(updates.dateOfBirth);
+      }
+
+      const child = await storage.updateChild(id, updates);
       if (!child) {
         return res.status(404).send("Child not found");
       }
@@ -600,21 +648,35 @@ export async function registerRoutes(
     }
   });
 
+  const adminReportSchema = z.object({
+    childId: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseInt(val) : val).pipe(z.number().int().positive("Invalid child ID")),
+    title: z.string().min(1, "Title is required"),
+    content: z.string().min(10, "Content must be at least 10 characters"),
+    photoUrl: z.string().nullable().optional(),
+  });
+
+  const adminReportUpdateSchema = z.object({
+    title: z.string().min(1, "Title is required").optional(),
+    content: z.string().min(10, "Content must be at least 10 characters").optional(),
+    photoUrl: z.string().nullable().optional(),
+  });
+
   app.post("/api/admin/reports", requireAdmin, async (req, res) => {
     try {
-      const { childId, title, content, photoUrl } = req.body;
-      
-      if (!childId || !title || !content) {
-        return res.status(400).send("Child, title, and content are required");
+      const parsed = adminReportSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
       }
 
-      const child = await storage.getChild(parseInt(childId));
+      const { childId, title, content, photoUrl } = parsed.data;
+
+      const child = await storage.getChild(childId);
       if (!child) {
         return res.status(404).send("Child not found");
       }
 
       const report = await storage.createReport({
-        childId: parseInt(childId),
+        childId,
         title,
         content,
         photoUrl: photoUrl || null,
@@ -622,7 +684,7 @@ export async function registerRoutes(
 
       // Send email notifications to all sponsors of this child
       const sponsorships = await storage.getSponsorships();
-      const childSponsorships = sponsorships.filter(s => s.childId === parseInt(childId) && s.status === "active");
+      const childSponsorships = sponsorships.filter(s => s.childId === childId && s.status === "active");
       
       for (const sponsorship of childSponsorships) {
         const sponsor = await storage.getUser(sponsorship.sponsorId);
@@ -697,8 +759,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid report ID" });
       }
 
-      const { title, content, photoUrl } = req.body;
-      const updated = await storage.updateReport(id, { title, content, photoUrl });
+      const parsed = adminReportUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0].message });
+      }
+
+      const updated = await storage.updateReport(id, parsed.data);
       
       if (!updated) {
         return res.status(404).json({ error: "Report not found" });

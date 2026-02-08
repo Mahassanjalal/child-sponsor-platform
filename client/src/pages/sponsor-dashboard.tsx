@@ -570,7 +570,40 @@ export default function SponsorDashboard() {
                         <CardTitle>Payment History</CardTitle>
                         <CardDescription>Your contribution history and invoices</CardDescription>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!payments || payments.length === 0) {
+                            toast({
+                              title: "No Data",
+                              description: "No payment history to export.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          const headers = ["Date", "Amount", "Status"];
+                          const rows = payments.map((p) => [
+                            format(new Date(p.paymentDate), "yyyy-MM-dd"),
+                            `$${p.amount}`,
+                            p.status,
+                          ]);
+                          const csvContent = [headers, ...rows]
+                            .map((row) => row.map((cell) => `"${cell}"`).join(","))
+                            .join("\n");
+                          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement("a");
+                          link.href = url;
+                          link.download = `payment-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
+                          link.click();
+                          URL.revokeObjectURL(url);
+                          toast({
+                            title: "Export Complete",
+                            description: "Your payment history has been downloaded.",
+                          });
+                        }}
+                      >
                         <Download className="w-4 h-4 mr-2" />
                         Export
                       </Button>
