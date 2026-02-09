@@ -13,6 +13,15 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Form,
   FormControl,
@@ -29,6 +38,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Settings,
@@ -44,8 +60,13 @@ import {
   AlertTriangle,
   Info,
   XCircle,
+  Users,
+  UserPlus,
+  Crown,
+  ShieldCheck,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import type { User } from "@shared/schema";
 
 const generalSettingsSchema = z.object({
   siteName: z.string().min(1, "Site name is required"),
@@ -92,6 +113,8 @@ export default function AdminSettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
+  const [promotingUser, setPromotingUser] = useState<User | null>(null);
+  const [demotingUser, setDemotingUser] = useState<User | null>(null);
 
   // Fetch settings from API
   const { data: settingsData, isLoading: loadingSettings } = useQuery<Record<string, string>>({
@@ -101,6 +124,34 @@ export default function AdminSettings() {
   // Fetch integration status
   const { data: integrationStatus, isLoading: loadingIntegrations } = useQuery<IntegrationStatus>({
     queryKey: ["/api/admin/integrations/status"],
+  });
+
+  // Fetch sponsors for role management
+  const { data: sponsors, isLoading: loadingSponsors } = useQuery<User[]>({
+    queryKey: ["/api/admin/sponsors"],
+  });
+
+  // Fetch admins
+  const { data: admins, isLoading: loadingAdmins } = useQuery<User[]>({
+    queryKey: ["/api/admin/admins"],
+  });
+
+  // Update role mutation
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
+      const res = await apiRequest("PUT", `/api/admin/sponsors/${userId}`, { role });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/admins"] });
+      toast({ title: "Success", description: "User role updated successfully" });
+      setPromotingUser(null);
+      setDemotingUser(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   // General Settings Form
@@ -214,7 +265,7 @@ export default function AdminSettings() {
 
       {/* Settings Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2 lg:grid-cols-4 w-full lg:w-auto">
+        <TabsList className="grid grid-cols-2 lg:grid-cols-5 w-full lg:w-auto">
           <TabsTrigger value="general" className="gap-2">
             <Globe className="w-4 h-4" />
             <span className="hidden sm:inline">General</span>
@@ -230,6 +281,10 @@ export default function AdminSettings() {
           <TabsTrigger value="integrations" className="gap-2">
             <Shield className="w-4 h-4" />
             <span className="hidden sm:inline">Integrations</span>
+          </TabsTrigger>
+          <TabsTrigger value="admins" className="gap-2">
+            <Crown className="w-4 h-4" />
+            <span className="hidden sm:inline">Admins</span>
           </TabsTrigger>
         </TabsList>
 
@@ -762,7 +817,198 @@ export default function AdminSettings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Admin Management */}
+        <TabsContent value="admins" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-primary" />
+                Admin Users
+              </CardTitle>
+              <CardDescription>
+                Manage administrator accounts and permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Current Admins */}
+              <div>
+                <h4 className="font-medium mb-3">Current Administrators</h4>
+                {loadingAdmins ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                ) : admins && admins.length > 0 ? (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Admin</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {admins.map((admin) => (
+                          <TableRow key={admin.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={admin.avatarUrl || undefined} />
+                                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                    {admin.firstName[0]}{admin.lastName[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{admin.firstName} {admin.lastName}</p>
+                                  <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/20">
+                                    <Crown className="w-3 h-3 mr-1" />
+                                    Admin
+                                  </Badge>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{admin.email}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600"
+                                onClick={() => setDemotingUser(admin)}
+                                disabled={admins.length <= 1}
+                              >
+                                Remove Admin
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No admin users found</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Promote Sponsor to Admin */}
+              <div>
+                <h4 className="font-medium mb-3">Promote Sponsor to Admin</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Select a sponsor to grant administrator privileges
+                </p>
+                {loadingSponsors ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                ) : sponsors && sponsors.length > 0 ? (
+                  <div className="rounded-md border max-h-[300px] overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Sponsor</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sponsors.map((sponsor) => (
+                          <TableRow key={sponsor.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={sponsor.avatarUrl || undefined} />
+                                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                    {sponsor.firstName[0]}{sponsor.lastName[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium">{sponsor.firstName} {sponsor.lastName}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{sponsor.email}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPromotingUser(sponsor)}
+                              >
+                                <UserPlus className="w-4 h-4 mr-2" />
+                                Make Admin
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No sponsors available</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Promote to Admin Confirmation Dialog */}
+      <Dialog open={!!promotingUser} onOpenChange={(open) => !open && setPromotingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Promote to Admin</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to give {promotingUser?.firstName} {promotingUser?.lastName} administrator privileges? 
+              They will have full access to manage the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setPromotingUser(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (promotingUser) {
+                  updateRoleMutation.mutate({ userId: promotingUser.id, role: "admin" });
+                }
+              }}
+              disabled={updateRoleMutation.isPending}
+            >
+              {updateRoleMutation.isPending ? "Promoting..." : "Confirm Promotion"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Demote from Admin Confirmation Dialog */}
+      <Dialog open={!!demotingUser} onOpenChange={(open) => !open && setDemotingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Admin Privileges</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove administrator privileges from {demotingUser?.firstName} {demotingUser?.lastName}? 
+              They will be demoted to a regular sponsor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDemotingUser(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (demotingUser) {
+                  updateRoleMutation.mutate({ userId: demotingUser.id, role: "sponsor" });
+                }
+              }}
+              disabled={updateRoleMutation.isPending}
+            >
+              {updateRoleMutation.isPending ? "Removing..." : "Remove Admin"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

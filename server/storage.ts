@@ -34,6 +34,7 @@ export interface IStorage {
   updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
   updateUserStripeInfo(id: number, stripeCustomerId: string): Promise<User | undefined>;
   getSponsors(): Promise<User[]>;
+  getAdmins(): Promise<User[]>;
   
   getChildren(): Promise<Child[]>;
   getChild(id: number): Promise<Child | undefined>;
@@ -115,6 +116,10 @@ export class DatabaseStorage implements IStorage {
 
   async getSponsors(): Promise<User[]> {
     return db.select().from(users).where(eq(users.role, "sponsor")).orderBy(desc(users.createdAt));
+  }
+
+  async getAdmins(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.role, "admin")).orderBy(desc(users.createdAt));
   }
 
   async getChildren(): Promise<Child[]> {

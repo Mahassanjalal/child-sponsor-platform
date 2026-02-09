@@ -50,7 +50,13 @@ import {
   CheckCircle,
   ChevronRight,
   ExternalLink,
+  Edit,
+  Trash2,
+  UserX,
+  Shield,
+  AlertTriangle,
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import type { Child, User, Sponsorship, Payment } from "@shared/schema";
 import { format } from "date-fns";
 
@@ -64,6 +70,10 @@ export default function AdminSponsors() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("sponsors");
   const [selectedSponsor, setSelectedSponsor] = useState<User | null>(null);
+  const [editingSponsor, setEditingSponsor] = useState<User | null>(null);
+  const [deletingSponsor, setDeletingSponsor] = useState<User | null>(null);
+  const [cancellingSponsorship, setCancellingSponsorship] = useState<SponsorshipWithDetails | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", phone: "", address: "" });
 
   const { data: sponsors, isLoading: loadingSponsors } = useQuery<User[]>({
     queryKey: ["/api/admin/sponsors"],
@@ -76,6 +86,68 @@ export default function AdminSponsors() {
   const { data: payments, isLoading: loadingPayments } = useQuery<Payment[]>({
     queryKey: ["/api/admin/payments"],
   });
+
+  // Edit sponsor mutation
+  const editSponsorMutation = useMutation({
+    mutationFn: async (data: { id: number; updates: Partial<User> }) => {
+      const res = await apiRequest("PUT", `/api/admin/sponsors/${data.id}`, data.updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsors"] });
+      toast({ title: "Success", description: "Sponsor updated successfully" });
+      setEditingSponsor(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Delete sponsor mutation
+  const deleteSponsorMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/sponsors/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsorships"] });
+      toast({ title: "Success", description: "Sponsor deleted successfully" });
+      setDeletingSponsor(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Cancel sponsorship mutation
+  const cancelSponsorshipMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/sponsorships/${id}/cancel`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsorships"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sponsors"] });
+      toast({ title: "Success", description: "Sponsorship cancelled successfully" });
+      setCancellingSponsorship(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Handle edit sponsor
+  const handleEditSponsor = (sponsor: User) => {
+    setEditForm({
+      firstName: sponsor.firstName,
+      lastName: sponsor.lastName,
+      email: sponsor.email,
+      phone: sponsor.phone || "",
+      address: sponsor.address || "",
+    });
+    setEditingSponsor(sponsor);
+  };
 
   // Filter sponsors based on search
   const filteredSponsors = sponsors?.filter((sponsor) => {
@@ -314,14 +386,31 @@ export default function AdminSponsors() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSelectedSponsor(sponsor)}
-                                >
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View
-                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setSelectedSponsor(sponsor)}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEditSponsor(sponsor)}>
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Edit Sponsor
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-red-600"
+                                      onClick={() => setDeletingSponsor(sponsor)}
+                                      disabled={stats.activeChildren > 0}
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete Sponsor
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </motion.tr>
                           );
@@ -454,6 +543,15 @@ export default function AdminSponsors() {
                                     <Eye className="w-4 h-4 mr-2" />
                                     View Sponsor
                                   </DropdownMenuItem>
+                                  {sponsorship.status === "active" && (
+                                    <DropdownMenuItem
+                                      className="text-red-600"
+                                      onClick={() => setCancellingSponsorship(sponsorship)}
+                                    >
+                                      <Ban className="w-4 h-4 mr-2" />
+                                      Cancel Sponsorship
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -579,6 +677,125 @@ export default function AdminSponsors() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Sponsor Dialog */}
+      <Dialog open={!!editingSponsor} onOpenChange={(open) => !open && setEditingSponsor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Sponsor</DialogTitle>
+            <DialogDescription>
+              Update sponsor information
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (editingSponsor) {
+                editSponsorMutation.mutate({
+                  id: editingSponsor.id,
+                  updates: editForm,
+                });
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setEditingSponsor(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={editSponsorMutation.isPending}>
+                {editSponsorMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Sponsor Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deletingSponsor}
+        onOpenChange={(open) => !open && setDeletingSponsor(null)}
+        title="Delete Sponsor"
+        description={
+          deletingSponsor
+            ? `Are you sure you want to delete ${deletingSponsor.firstName} ${deletingSponsor.lastName}? This action cannot be undone and will remove all their payment history.`
+            : ""
+        }
+        confirmLabel="Delete Sponsor"
+        destructive={true}
+        isPending={deleteSponsorMutation.isPending}
+        onConfirm={() => {
+          if (deletingSponsor) {
+            deleteSponsorMutation.mutate(deletingSponsor.id);
+          }
+        }}
+      />
+
+      {/* Cancel Sponsorship Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!cancellingSponsorship}
+        onOpenChange={(open) => !open && setCancellingSponsorship(null)}
+        title="Cancel Sponsorship"
+        description={
+          cancellingSponsorship
+            ? `Are you sure you want to cancel the sponsorship between ${cancellingSponsorship.sponsor.firstName} ${cancellingSponsorship.sponsor.lastName} and ${cancellingSponsorship.child.firstName} ${cancellingSponsorship.child.lastName}? This will stop the subscription and make the child available for new sponsors.`
+            : ""
+        }
+        confirmLabel="Cancel Sponsorship"
+        destructive={true}
+        isPending={cancelSponsorshipMutation.isPending}
+        onConfirm={() => {
+          if (cancellingSponsorship) {
+            cancelSponsorshipMutation.mutate(cancellingSponsorship.id);
+          }
+        }}
+      />
     </div>
   );
 }

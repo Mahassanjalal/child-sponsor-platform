@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,8 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TableRowSkeleton } from "@/components/loading-skeleton";
-import { DashboardEmptyState } from "@/components/dashboard";
+import { DashboardEmptyState, ConfirmDialog } from "@/components/dashboard";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard,
   Search,
@@ -31,6 +39,8 @@ import {
   Download,
   ArrowUpRight,
   ArrowDownRight,
+  MoreHorizontal,
+  RotateCcw,
 } from "lucide-react";
 import type { Child, User, Sponsorship, Payment } from "@shared/schema";
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
@@ -41,9 +51,11 @@ interface SponsorshipWithDetails extends Sponsorship {
 }
 
 export default function AdminPayments() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "succeeded" | "pending" | "failed">("all");
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
+  const [refundingPayment, setRefundingPayment] = useState<Payment | null>(null);
 
   const { data: payments, isLoading: loadingPayments } = useQuery<Payment[]>({
     queryKey: ["/api/admin/payments"],
@@ -52,6 +64,59 @@ export default function AdminPayments() {
   const { data: sponsorships, isLoading: loadingSponsorships } = useQuery<SponsorshipWithDetails[]>({
     queryKey: ["/api/admin/sponsorships"],
   });
+
+  // Refund mutation
+  const refundMutation = useMutation({
+    mutationFn: async (paymentId: number) => {
+      const res = await apiRequest("POST", `/api/admin/payments/${paymentId}/refund`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/payments"] });
+      toast({ title: "Success", description: "Payment refunded successfully" });
+      setRefundingPayment(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Export CSV function
+  const handleExportCSV = () => {
+    if (!filteredPayments || filteredPayments.length === 0) {
+      toast({ title: "No data", description: "No payments to export", variant: "destructive" });
+      return;
+    }
+
+    const headers = ["Date", "Sponsor", "Child", "Amount", "Status", "Transaction ID"];
+    const rows = filteredPayments.map((payment) => {
+      const sponsorship = getSponsorshipDetails(payment.sponsorshipId);
+      return [
+        format(new Date(payment.paymentDate), "yyyy-MM-dd HH:mm:ss"),
+        sponsorship ? `${sponsorship.sponsor.firstName} ${sponsorship.sponsor.lastName}` : "—",
+        sponsorship ? `${sponsorship.child.firstName} ${sponsorship.child.lastName}` : "—",
+        payment.amount,
+        payment.status,
+        payment.stripePaymentId || "—",
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `payments-export-${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({ title: "Success", description: "Payments exported successfully" });
+  };
 
   // Get sponsorship details for a payment
   const getSponsorshipDetails = (sponsorshipId: number) => {
@@ -165,7 +230,7 @@ export default function AdminPayments() {
             View and track all sponsorship payments
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
           <Download className="w-4 h-4" />
           Export CSV
         </Button>
@@ -293,7 +358,7 @@ export default function AdminPayments() {
           {loadingPayments || loadingSponsorships ? (
             <div className="space-y-2">
               {[1, 2, 3, 4, 5].map((i) => (
-                <TableRowSkeleton key={i} columns={6} />
+                <TableRowSkeleton key={i} columns={7} />
               ))}
             </div>
           ) : filteredPayments && filteredPayments.length > 0 ? (
@@ -307,6 +372,7 @@ export default function AdminPayments() {
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Transaction ID</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -384,6 +450,25 @@ export default function AdminPayments() {
                               {payment.stripePaymentId?.substring(0, 20) || "—"}...
                             </code>
                           </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => setRefundingPayment(payment)}
+                                  disabled={payment.status !== "succeeded" || !payment.stripePaymentId}
+                                >
+                                  <RotateCcw className="w-4 h-4 mr-2" />
+                                  Issue Refund
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
                         </motion.tr>
                       );
                     })}
@@ -404,6 +489,26 @@ export default function AdminPayments() {
           )}
         </CardContent>
       </Card>
+
+      {/* Refund Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!refundingPayment}
+        onOpenChange={(open) => !open && setRefundingPayment(null)}
+        title="Issue Refund"
+        description={
+          refundingPayment
+            ? `Are you sure you want to refund $${refundingPayment.amount} for this payment? This action will process through Stripe and cannot be undone.`
+            : ""
+        }
+        confirmLabel="Issue Refund"
+        destructive={true}
+        isPending={refundMutation.isPending}
+        onConfirm={() => {
+          if (refundingPayment) {
+            refundMutation.mutate(refundingPayment.id);
+          }
+        }}
+      />
     </div>
   );
 }
