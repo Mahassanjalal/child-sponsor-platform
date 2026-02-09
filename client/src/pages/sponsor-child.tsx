@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedContainer } from "@/components/animated-container";
+import { StripePaymentDialog } from "@/components/stripe-payment-dialog";
 import {
   Heart,
   MapPin,
@@ -24,44 +22,25 @@ import {
   Sparkles,
   Gift,
   RefreshCw,
-  Loader2,
 } from "lucide-react";
 import type { Child } from "@shared/schema";
 import { differenceInYears } from "date-fns";
 
 export default function SponsorChild() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [paymentType, setPaymentType] = useState<"monthly" | "one-time">("monthly");
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const { data: child, isLoading } = useQuery<Child>({
     queryKey: ["/api/children", id],
     enabled: !!id,
   });
 
-  const checkoutMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/stripe/create-checkout", {
-        childId: parseInt(id!),
-        paymentType,
-      });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      if (data.sessionUrl) {
-        window.location.href = data.sessionUrl;
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Checkout Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const handlePaymentSuccess = () => {
+    setShowPaymentDialog(false);
+    setLocation("/sponsor/success?embedded=true");
+  };
 
   const calculateAge = (dateOfBirth: Date | string) => {
     return differenceInYears(new Date(), new Date(dateOfBirth));
@@ -303,22 +282,12 @@ export default function SponsorChild() {
               </div>
 
               <Button
-                onClick={() => checkoutMutation.mutate()}
-                disabled={checkoutMutation.isPending}
+                onClick={() => setShowPaymentDialog(true)}
                 className="w-full h-12 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-lg"
                 data-testid="button-proceed-checkout"
               >
-                {checkoutMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Heart className="w-5 h-5 mr-2" />
-                    Proceed to Checkout
-                  </>
-                )}
+                <Heart className="w-5 h-5 mr-2" />
+                Proceed to Checkout
               </Button>
 
               <p className="text-xs text-center text-muted-foreground">
@@ -328,6 +297,19 @@ export default function SponsorChild() {
           </Card>
         </AnimatedContainer>
       </div>
+
+      {/* Stripe Payment Dialog */}
+      {child && (
+        <StripePaymentDialog
+          open={showPaymentDialog}
+          onOpenChange={setShowPaymentDialog}
+          childId={child.id}
+          childName={`${child.firstName} ${child.lastName}`}
+          amount={child.monthlyAmount}
+          paymentType={paymentType}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 }

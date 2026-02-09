@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useSearch } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -16,15 +16,13 @@ import {
 } from "lucide-react";
 
 export default function SponsorSuccess() {
-  const [, setLocation] = useLocation();
   const searchString = useSearch();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
 
   const params = new URLSearchParams(searchString);
   const sessionId = params.get("session_id");
-  const childId = params.get("child_id");
-  const paymentType = params.get("type");
+  const isEmbedded = params.get("embedded") === "true";
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
@@ -45,6 +43,15 @@ export default function SponsorSuccess() {
   });
 
   useEffect(() => {
+    // If this is from embedded checkout, payment is already confirmed
+    if (isEmbedded) {
+      setStatus("success");
+      queryClient.invalidateQueries({ queryKey: ["/api/sponsorships/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children/available"] });
+      return;
+    }
+    
+    // For redirect-based checkout, confirm the session
     if (sessionId) {
       confirmMutation.mutate();
     } else {

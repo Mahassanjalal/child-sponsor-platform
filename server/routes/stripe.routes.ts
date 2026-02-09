@@ -139,6 +139,143 @@ router.delete("/payment-methods/:paymentMethodId", requireAuth, async (req, res)
   }
 });
 
+// Create Payment Intent for embedded checkout (popup-style payment)
+router.post("/create-payment-intent", requireAuth, async (req, res) => {
+  try {
+    const parsed = createCheckoutSchema.safeParse(req.body);
+    
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.errors[0].message });
+    }
+
+    const { childId, paymentType } = parsed.data;
+    
+    const child = await storage.getChild(childId);
+    if (!child) {
+      return res.status(404).json({ error: "Child not found" });
+    }
+    if (child.isSponsored) {
+      return res.status(400).json({ error: "Child is already sponsored" });
+    }
+
+    const stripe = await getUncachableStripeClient();
+    let customerId = req.user!.stripeCustomerId;
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: req.user!.email,
+        name: `${req.user!.firstName} ${req.user!.lastName}`,
+      });
+      customerId = customer.id;
+      await storage.updateUserStripeInfo(req.user!.id, customerId);
+    }
+
+    const amount = Math.round(parseFloat(child.monthlyAmount) * 100);
+
+    // Create a payment intent for embedded checkout
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: 'usd',
+      customer: customerId,
+      metadata: {
+        childId: childId.toString(),
+        sponsorId: req.user!.id.toString(),
+        paymentType,
+      },
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    res.json({ 
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+    });
+  } catch (error) {
+    console.error("Create payment intent error:", error);
+    res.status(500).json({ error: "Failed to create payment intent" });
+  }
+});
+
+// Complete sponsorship after successful embedded payment
+router.post("/complete-sponsorship", requireAuth, async (req, res) => {
+  try {
+    const { paymentIntentId, childId, paymentType } = req.body;
+
+    if (!paymentIntentId || !childId || !paymentType) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    // Verify payment was successful
+    if (paymentIntent.status !== 'succeeded') {
+      return res.status(400).json({ error: "Payment not completed" });
+    }
+
+    // Verify the payment belongs to this user
+    const metadataSponsorId = paymentIntent.metadata?.sponsorId;
+    const metadataChildId = paymentIntent.metadata?.childId;
+    
+    if (metadataSponsorId !== req.user!.id.toString()) {
+      return res.status(403).json({ error: "Payment does not belong to this user" });
+    }
+    
+    if (metadataChildId !== childId.toString()) {
+      return res.status(400).json({ error: "Child ID mismatch" });
+    }
+
+    const child = await storage.getChild(parseInt(childId));
+    if (!child) {
+      return res.status(404).json({ error: "Child not found" });
+    }
+
+    // Check if already sponsoring
+    const existingSponsorships = await storage.getSponsorshipsBySponserId(req.user!.id);
+    const alreadySponsoring = existingSponsorships.some(s => s.childId === parseInt(childId));
+    
+    if (alreadySponsoring) {
+      return res.status(400).json({ error: "Already sponsoring this child" });
+    }
+
+    // Create the sponsorship
+    const sponsorship = await storage.createSponsorship({
+      sponsorId: req.user!.id,
+      childId: parseInt(childId),
+      status: "active",
+      monthlyAmount: child.monthlyAmount,
+      paymentType,
+      stripeSubscriptionId: null, // One-time payments don't have subscriptions
+    });
+
+    await storage.updateChildSponsoredStatus(parseInt(childId), true);
+
+    // Record the payment
+    await storage.createPayment({
+      sponsorshipId: sponsorship.id,
+      amount: child.monthlyAmount,
+      status: "completed",
+      stripePaymentId: paymentIntentId,
+    });
+
+    // Send confirmation email
+    sendSponsorshipConfirmationEmail(
+      req.user!.email,
+      req.user!.firstName,
+      `${child.firstName} ${child.lastName}`,
+      child.monthlyAmount,
+      paymentType
+    ).catch(err => console.error('Failed to send sponsorship confirmation email:', err));
+
+    res.json({ sponsorship });
+  } catch (error) {
+    console.error("Complete sponsorship error:", error);
+    res.status(500).json({ error: "Failed to complete sponsorship" });
+  }
+});
+
+// Legacy: Create Checkout Session (redirect-based - keeping for fallback)
 router.post("/create-checkout", requireAuth, async (req, res) => {
   try {
     const parsed = createCheckoutSchema.safeParse(req.body);
@@ -192,8 +329,8 @@ router.post("/create-checkout", requireAuth, async (req, res) => {
           },
         ],
         mode: 'payment',
-        success_url: `${baseUrl}/sponsor-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/children/${childId}`,
+        success_url: `${baseUrl}/sponsor/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/child/${childId}`,
         metadata: {
           childId: childId.toString(),
           sponsorId: req.user!.id.toString(),
@@ -221,8 +358,8 @@ router.post("/create-checkout", requireAuth, async (req, res) => {
           },
         ],
         mode: 'subscription',
-        success_url: `${baseUrl}/sponsor-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/children/${childId}`,
+        success_url: `${baseUrl}/sponsor/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/child/${childId}`,
         metadata: {
           childId: childId.toString(),
           sponsorId: req.user!.id.toString(),
