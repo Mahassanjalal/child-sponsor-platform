@@ -15,44 +15,6 @@ router.get("/publishable-key", async (req, res) => {
   }
 });
 
-router.get("/payment-methods", requireAuth, async (req, res) => {
-  try {
-    const customerId = req.user!.stripeCustomerId;
-    
-    if (!customerId) {
-      return res.json({ paymentMethods: [], defaultPaymentMethodId: null });
-    }
-
-    const stripe = await getUncachableStripeClient();
-    
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: customerId,
-      type: 'card',
-    });
-
-    const customer = await stripe.customers.retrieve(customerId);
-    const defaultPaymentMethodId = 
-      typeof customer !== 'string' && !customer.deleted 
-        ? (customer.invoice_settings?.default_payment_method as string | null)
-        : null;
-
-    res.json({
-      paymentMethods: paymentMethods.data.map(pm => ({
-        id: pm.id,
-        brand: pm.card?.brand,
-        last4: pm.card?.last4,
-        expMonth: pm.card?.exp_month,
-        expYear: pm.card?.exp_year,
-        isDefault: pm.id === defaultPaymentMethodId,
-      })),
-      defaultPaymentMethodId,
-    });
-  } catch (error) {
-    console.error("Get payment methods error:", error);
-    res.status(500).send("Failed to get payment methods");
-  }
-});
-
 router.post("/billing-portal", requireAuth, async (req, res) => {
   try {
     const stripe = await getUncachableStripeClient();
@@ -78,64 +40,6 @@ router.post("/billing-portal", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Billing portal error:", error);
     res.status(500).send("Failed to create billing portal session");
-  }
-});
-
-router.post("/set-default-payment-method", requireAuth, async (req, res) => {
-  try {
-    const { paymentMethodId } = req.body;
-    
-    if (!paymentMethodId) {
-      return res.status(400).json({ error: "Payment method ID is required" });
-    }
-
-    const customerId = req.user!.stripeCustomerId;
-    if (!customerId) {
-      return res.status(400).json({ error: "No Stripe customer found" });
-    }
-
-    const stripe = await getUncachableStripeClient();
-
-    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-    if (paymentMethod.customer !== customerId) {
-      return res.status(403).json({ error: "Payment method does not belong to this customer" });
-    }
-
-    await stripe.customers.update(customerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId,
-      },
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Set default payment method error:", error);
-    res.status(500).send("Failed to set default payment method");
-  }
-});
-
-router.delete("/payment-methods/:paymentMethodId", requireAuth, async (req, res) => {
-  try {
-    const paymentMethodId = req.params.paymentMethodId as string;
-    
-    const customerId = req.user!.stripeCustomerId;
-    if (!customerId) {
-      return res.status(400).json({ error: "No Stripe customer found" });
-    }
-
-    const stripe = await getUncachableStripeClient();
-
-    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-    if (paymentMethod.customer !== customerId) {
-      return res.status(403).json({ error: "Payment method does not belong to this customer" });
-    }
-
-    await stripe.paymentMethods.detach(paymentMethodId);
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Delete payment method error:", error);
-    res.status(500).send("Failed to delete payment method");
   }
 });
 
